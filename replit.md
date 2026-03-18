@@ -45,13 +45,22 @@ artifacts-monorepo/
 
 ## Frontend Pages
 
-- **Dashboard** (`/`) - Analytics overview with stat cards, execution trends chart, recent executions
-- **Agents** (`/agents`) - Grid of AI agent cards with create/delete, search, provider badges
+- **Dashboard** (`/`) - Analytics overview with onboarding checklist (3 steps, localStorage persistence), stat cards with tooltips, execution trends chart, recent executions, quick action cards with descriptions, platform status panel
+- **Agents** (`/agents`) - Grid of AI agent cards with create/delete, search, provider badges (GPT/CLA/GEM), info banner explaining agents, enhanced create form with model options per provider, temperature/memory explanations, help text on every field
 - **Workflows** (`/workflows`) - List of workflows with node counts, run stats, create/delete
-- **Workflow Editor** (`/workflows/:id/edit`) - Full-screen React Flow canvas with drag-and-drop node palette, available agents sidebar, save/run buttons. Node types: trigger, agent, condition, output, code, llm_call, transform
-- **Executions** (`/executions`) - Table of execution logs with status, duration, tokens
-- **Knowledge Bases** (`/knowledge-bases`) - Cards showing document/chunk counts, embedding model
-- **Templates** (`/templates`) - Gallery with template cards and "Use" button to apply
+- **Workflow Editor** (`/workflows/:id/edit`) - Full-screen React Flow canvas with:
+  - Drag-and-drop node palette with 12 node types: trigger, agent, condition, output, code, llm_call, transform, error_handler, delay, loop, human_review, merge
+  - Each node type has description, icon, and color coding
+  - **Slide-out NodeConfigPanel**: Click any node to open type-specific config (trigger type/schedule/webhook, agent selection, condition rules, code editor, LLM prompt template, transform mappings, error handler actions, delay duration, loop config, human review settings, merge strategy)
+  - Every config field has help text/tooltips and inline instructions
+  - Getting Started guide (? icon in palette)
+  - Empty canvas onboarding prompt
+  - Condition nodes show Pass/Fail labels on output handles
+  - Node delete and duplicate from config panel
+  - Workflow name shown in top bar
+- **Executions** (`/executions`) - Table with search/filter, info banner explaining executions, click-to-open detail slide-over showing step-by-step execution logs with input/output/error per step, actionable error suggestions, token usage per step
+- **Knowledge Bases** (`/knowledge-bases`) - Cards with document/chunk counts, info banner explaining RAG, click-to-open detail panel with drag-and-drop document upload UI, document list with status, configuration view (chunk size, overlap, embedding model)
+- **Templates** (`/templates`) - Gallery split by agent/workflow categories, info banner explaining templates, category badges, tag display
 
 ## API Routes
 

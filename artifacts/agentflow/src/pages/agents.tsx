@@ -5,7 +5,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -27,7 +27,7 @@ export default function Agents() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-gradient">AI Agents</h1>
-          <p className="text-muted-foreground mt-1">Manage your autonomous AI workers.</p>
+          <p className="text-muted-foreground mt-1">Manage your autonomous AI workers. Each agent has its own role, AI model, and set of tools.</p>
         </div>
         
         <div className="flex w-full sm:w-auto gap-3">
@@ -47,13 +47,21 @@ export default function Agents() {
                 New Agent
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-card/95 backdrop-blur-xl border-white/10">
+            <DialogContent className="sm:max-w-[650px] bg-card/95 backdrop-blur-xl border-white/10 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-display">Create AI Agent</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">Set up a new AI worker with specific capabilities. Fill in the details below — don't worry, you can change everything later.</p>
               </DialogHeader>
               <CreateAgentForm onSuccess={() => setIsCreateOpen(false)} />
             </DialogContent>
           </Dialog>
+        </div>
+      </div>
+
+      <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 flex gap-3 items-start">
+        <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-muted-foreground">
+          <p><strong className="text-foreground">What is an AI Agent?</strong> An agent is like a virtual team member with a specific skill set. You give it a role (like "Data Analyst" or "Content Writer"), choose an AI model (GPT-4, Claude, etc.), and assign tools it can use. Agents can then be added to Workflows to automate complex tasks.</p>
         </div>
       </div>
 
@@ -67,8 +75,8 @@ export default function Agents() {
             <Bot className="w-8 h-8" />
           </div>
           <h3 className="text-xl font-semibold mb-2 text-foreground">No agents found</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create your first AI agent to start building automated workflows.</p>
-          <Button onClick={() => setIsCreateOpen(true)} className="bg-primary text-white">Create Agent</Button>
+          <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create your first AI agent to start building automated workflows. An agent is a specialized AI worker that performs specific tasks.</p>
+          <Button onClick={() => setIsCreateOpen(true)} className="bg-primary text-white">Create Your First Agent</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -105,8 +113,9 @@ function AgentCard({ agent }: { agent: any }) {
 
   const getProviderIcon = (provider: string) => {
     switch(provider) {
-      case 'openai': return <span className="font-bold text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">GPT</span>;
-      case 'anthropic': return <span className="font-bold text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">CLA</span>;
+      case 'openai': return <span className="font-bold text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded" title="OpenAI (GPT models)">GPT</span>;
+      case 'anthropic': return <span className="font-bold text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded" title="Anthropic (Claude models)">CLA</span>;
+      case 'google': return <span className="font-bold text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded" title="Google (Gemini models)">GEM</span>;
       default: return <BrainCircuit className="w-3 h-3" />;
     }
   };
@@ -130,46 +139,54 @@ function AgentCard({ agent }: { agent: any }) {
         </div>
         
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-muted-foreground'}`} />
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-            <MoreVertical className="w-4 h-4" />
-          </Button>
+          <div className={`flex items-center gap-1.5 text-xs ${agent.status === 'active' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+            <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-muted-foreground'}`} />
+            <span className="capitalize">{agent.status || 'active'}</span>
+          </div>
         </div>
       </div>
 
       <div className="flex-1">
-        <p className="text-sm text-foreground/80 line-clamp-2 mb-4">{agent.role}</p>
+        <p className="text-sm text-foreground/80 line-clamp-2 mb-4">{agent.role || agent.description}</p>
         
-        <div className="flex flex-wrap gap-2 mb-4">
-          {agent.tools?.slice(0, 3).map((tool: string) => (
-            <span key={tool} className="text-[10px] px-2 py-1 bg-secondary rounded-md border border-white/5 text-muted-foreground">
-              {tool}
-            </span>
-          ))}
-          {(agent.tools?.length || 0) > 3 && (
-            <span className="text-[10px] px-2 py-1 bg-secondary rounded-md border border-white/5 text-muted-foreground">
-              +{(agent.tools?.length || 0) - 3}
-            </span>
-          )}
-        </div>
+        {agent.tools?.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Wrench className="w-3 h-3" /> Tools
+            </p>
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {agent.tools?.slice(0, 3).map((tool: string) => (
+                <span key={tool} className="text-[10px] px-2 py-1 bg-secondary rounded-md border border-white/5 text-muted-foreground">
+                  {tool}
+                </span>
+              ))}
+              {(agent.tools?.length || 0) > 3 && (
+                <span className="text-[10px] px-2 py-1 bg-secondary rounded-md border border-white/5 text-muted-foreground">
+                  +{(agent.tools?.length || 0) - 3}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="pt-4 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex gap-4">
-          <span className="flex items-center gap-1" title="Executions">
-            <Play className="w-3 h-3" /> {agent.executionCount || 0}
+          <span className="flex items-center gap-1" title="Total executions this agent has been part of">
+            <Play className="w-3 h-3" /> {agent.executionCount || 0} runs
           </span>
-          <span className="flex items-center gap-1" title="Avg Response">
-            <ActivitySquare className="w-3 h-3" /> {agent.avgResponseTime ? agent.avgResponseTime.toFixed(1) + 's' : '-'}
+          <span className="flex items-center gap-1" title="Average time this agent takes to respond">
+            <ActivitySquare className="w-3 h-3" /> {agent.avgResponseTime ? agent.avgResponseTime.toFixed(1) + 's' : '-'} avg
           </span>
         </div>
         <div className="flex items-center gap-1">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => { if(confirm("Delete agent?")) deleteAgent({ agentId: agent.id }) }}
+            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => { if(confirm("Delete this agent? This will remove it from any workflows that use it.")) deleteAgent({ agentId: agent.id }) }}
             disabled={isDeleting}
+            title="Delete agent"
           >
             <Trash2 className="w-3 h-3" />
           </Button>
@@ -186,7 +203,7 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/agents"] });
-        toast({ title: "Agent created successfully" });
+        toast({ title: "Agent created successfully! You can now use it in workflows." });
         onSuccess();
       },
       onError: (err) => toast({ title: "Error creating agent", variant: "destructive" })
@@ -208,81 +225,152 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
     mutate({ data: formData });
   };
 
+  const modelOptions: Record<string, { label: string; desc: string }[]> = {
+    openai: [
+      { label: "gpt-4o", desc: "Most capable - great for complex tasks" },
+      { label: "gpt-4o-mini", desc: "Faster and cheaper - good for simple tasks" },
+      { label: "gpt-4-turbo", desc: "Previous generation - still very capable" },
+    ],
+    anthropic: [
+      { label: "claude-3-5-sonnet-20241022", desc: "Best balance of speed and intelligence" },
+      { label: "claude-3-5-haiku-20241022", desc: "Very fast - best for high-volume tasks" },
+      { label: "claude-3-opus-20240229", desc: "Most capable Claude model" },
+    ],
+    google: [
+      { label: "gemini-1.5-pro", desc: "Most capable Gemini model" },
+      { label: "gemini-1.5-flash", desc: "Fast and efficient" },
+    ]
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+    <form onSubmit={handleSubmit} className="space-y-5 mt-4">
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          Agent Name
+          <span className="text-red-400">*</span>
+        </Label>
+        <Input 
+          required 
+          placeholder="e.g. Data Analyst, Content Writer, Code Reviewer"
+          value={formData.name}
+          onChange={e => setFormData({...formData, name: e.target.value})}
+          className="bg-secondary/50 border-white/10"
+        />
+        <p className="text-[10px] text-muted-foreground">Give your agent a clear, descriptive name so you can easily identify it in workflows.</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Name</Label>
-          <Input 
-            required 
-            placeholder="e.g. Data Analyst"
-            value={formData.name}
-            onChange={e => setFormData({...formData, name: e.target.value})}
-            className="bg-secondary/50 border-white/10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Provider</Label>
-          <Select value={formData.provider} onValueChange={(v: any) => setFormData({...formData, provider: v})}>
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5">
+            AI Provider
+            <span className="text-blue-400 cursor-help" title="The company providing the AI model. Each has different strengths."><HelpCircle className="w-3 h-3" /></span>
+          </Label>
+          <Select value={formData.provider} onValueChange={(v: any) => {
+            const models = modelOptions[v];
+            setFormData({...formData, provider: v, model: models?.[0]?.label || ''});
+          }}>
             <SelectTrigger className="bg-secondary/50 border-white/10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="openai">OpenAI</SelectItem>
-              <SelectItem value="anthropic">Anthropic</SelectItem>
-              <SelectItem value="google">Google</SelectItem>
+              <SelectItem value="openai">OpenAI (GPT)</SelectItem>
+              <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+              <SelectItem value="google">Google (Gemini)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">The AI company whose models your agent will use.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5">
+            Model
+            <span className="text-blue-400 cursor-help" title="The specific AI model. More capable models are slower and cost more."><HelpCircle className="w-3 h-3" /></span>
+          </Label>
+          <Select value={formData.model} onValueChange={v => setFormData({...formData, model: v})}>
+            <SelectTrigger className="bg-secondary/50 border-white/10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(modelOptions[formData.provider] || []).map(m => (
+                <SelectItem key={m.label} value={m.label}>
+                  <div>
+                    <span>{m.label}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2">- {m.desc}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Role (System Prompt)</Label>
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          Role / System Prompt
+          <span className="text-red-400">*</span>
+          <span className="text-blue-400 cursor-help" title="This tells the AI what kind of expert it should be. Be specific about its expertise and how it should respond."><HelpCircle className="w-3 h-3" /></span>
+        </Label>
         <Textarea 
           required
           rows={3}
-          placeholder="You are an expert data analyst..."
+          placeholder="You are an expert data analyst who specializes in extracting insights from CSV files and producing clear, actionable summaries with charts..."
           value={formData.role}
           onChange={e => setFormData({...formData, role: e.target.value})}
           className="bg-secondary/50 border-white/10 resize-none"
         />
+        <p className="text-[10px] text-muted-foreground">This is the most important field. Tell the AI who it is, what it's an expert in, and how it should behave. The more specific you are, the better the results.</p>
       </div>
 
-      <div className="space-y-2">
-        <Label>Goal</Label>
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          Goal
+          <span className="text-blue-400 cursor-help" title="A short summary of what this agent is trying to accomplish."><HelpCircle className="w-3 h-3" /></span>
+        </Label>
         <Input 
-          placeholder="Analyze CSVs and provide summaries"
+          placeholder="e.g. Analyze uploaded data files and provide insights"
           value={formData.goal}
           onChange={e => setFormData({...formData, goal: e.target.value})}
           className="bg-secondary/50 border-white/10"
         />
+        <p className="text-[10px] text-muted-foreground">Optional. A one-line summary of what this agent should achieve.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 pt-2">
-        <div className="space-y-4">
-          <div className="flex justify-between">
-            <Label>Temperature</Label>
-            <span className="text-xs text-muted-foreground">{formData.temperature}</span>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label className="flex items-center gap-1.5">
+              <Thermometer className="w-3 h-3 text-muted-foreground" />
+              Temperature
+            </Label>
+            <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded">{formData.temperature}</span>
           </div>
           <Slider 
             value={[formData.temperature]} 
             max={2} step={0.1}
             onValueChange={v => setFormData({...formData, temperature: v[0]})}
           />
+          <p className="text-[10px] text-muted-foreground">
+            Low (0.1) = precise and consistent. High (1.5+) = creative and varied. Default 0.7 works well for most tasks.
+          </p>
         </div>
-        <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
-          <div className="space-y-0.5">
-            <Label className="text-sm">Vector Memory</Label>
-            <p className="text-xs text-muted-foreground">Remember past conversations</p>
+        <div className="flex flex-col justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm flex items-center gap-1.5">
+                <Brain className="w-3 h-3 text-muted-foreground" />
+                Vector Memory
+              </Label>
+              <p className="text-[10px] text-muted-foreground">Remember past conversations</p>
+            </div>
+            <Switch 
+              checked={formData.memoryEnabled}
+              onCheckedChange={v => setFormData({...formData, memoryEnabled: v})}
+            />
           </div>
-          <Switch 
-            checked={formData.memoryEnabled}
-            onCheckedChange={v => setFormData({...formData, memoryEnabled: v})}
-          />
+          <p className="text-[10px] text-muted-foreground mt-2">When enabled, the agent remembers context from previous interactions.</p>
         </div>
       </div>
 
-      <div className="pt-6 flex justify-end gap-3">
+      <div className="pt-6 flex justify-end gap-3 border-t border-white/5">
         <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
         <Button type="submit" disabled={isPending} className="bg-primary text-white">
           {isPending ? "Creating..." : "Create Agent"}
