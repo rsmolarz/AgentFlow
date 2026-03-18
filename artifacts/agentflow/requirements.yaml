@@ -1,0 +1,19 @@
+packages:
+  "@xyflow/react": "Visual node-based workflow builder canvas"
+  "recharts": "Data visualization for analytics dashboard"
+  "framer-motion": "Smooth animations and transitions for UI elements"
+  "date-fns": "Date and time formatting for execution logs"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to merge tailwind classes safely"
+
+images:
+  - path: "artifacts/agentflow/public/images/logo.png"
+    description: "Minimalist, sleek glowing geometric icon representing a neural network node or agent, deep purple and cyan colors, dark background"
+    aspect_ratio: "1:1"
+  - path: "artifacts/agentflow/public/images/hero-bg.png"
+    description: "Deep dark blue and purple abstract gradient mesh, glassmorphism, subtle glowing nodes connected by lines in the background, professional corporate AI aesthetic"
+    aspect_ratio: "16:9"
+
+notes:
+  - "Assuming shadcn/ui components follow standard radix-ui patterns"
+  - "Using API generated hooks from @workspace/api-client-react"

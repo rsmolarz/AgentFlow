@@ -1,22 +1,33 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AgentFlow AI Agent Management Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agents
+    description: AI Agent CRUD operations
+  - name: workflows
+    description: Workflow management
+  - name: executions
+    description: Workflow execution and monitoring
+  - name: templates
+    description: Pre-built agent and workflow templates
+  - name: knowledgeBases
+    description: Knowledge base management for RAG
+  - name: analytics
+    description: Analytics and metrics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,509 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List all agents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, draft]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Create a new agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentBody"
+      responses:
+        "201":
+          description: Agent created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /agents/{agentId}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent by ID
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: Agent not found
+    put:
+      operationId: updateAgent
+      tags: [agents]
+      summary: Update an agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentBody"
+      responses:
+        "200":
+          description: Agent updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+    delete:
+      operationId: deleteAgent
+      tags: [agents]
+      summary: Delete an agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Agent deleted
+
+  /workflows:
+    get:
+      operationId: listWorkflows
+      tags: [workflows]
+      summary: List all workflows
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, draft]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workflow"
+    post:
+      operationId: createWorkflow
+      tags: [workflows]
+      summary: Create a new workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkflowBody"
+      responses:
+        "201":
+          description: Workflow created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+
+  /workflows/{workflowId}:
+    get:
+      operationId: getWorkflow
+      tags: [workflows]
+      summary: Get workflow by ID
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workflow details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+    put:
+      operationId: updateWorkflow
+      tags: [workflows]
+      summary: Update a workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkflowBody"
+      responses:
+        "200":
+          description: Workflow updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+    delete:
+      operationId: deleteWorkflow
+      tags: [workflows]
+      summary: Delete a workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Workflow deleted
+
+  /workflows/{workflowId}/run:
+    post:
+      operationId: runWorkflow
+      tags: [executions]
+      summary: Execute a workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunWorkflowBody"
+      responses:
+        "201":
+          description: Execution started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  /executions:
+    get:
+      operationId: listExecutions
+      tags: [executions]
+      summary: List all executions
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionList"
+
+  /executions/{executionId}:
+    get:
+      operationId: getExecution
+      tags: [executions]
+      summary: Get execution details
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  /executions/{executionId}/cancel:
+    post:
+      operationId: cancelExecution
+      tags: [executions]
+      summary: Cancel a running execution
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Execution"
+
+  /executions/{executionId}/logs:
+    get:
+      operationId: getExecutionLogs
+      tags: [executions]
+      summary: Get execution step logs
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Execution logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExecutionLog"
+
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List available templates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [agent, workflow, starter]
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+
+  /templates/{templateId}/apply:
+    post:
+      operationId: applyTemplate
+      tags: [templates]
+      summary: Apply a template to create agent/workflow
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Template applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplyTemplateResponse"
+
+  /knowledge-bases:
+    get:
+      operationId: listKnowledgeBases
+      tags: [knowledgeBases]
+      summary: List knowledge bases
+      responses:
+        "200":
+          description: List of knowledge bases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgeBase"
+    post:
+      operationId: createKnowledgeBase
+      tags: [knowledgeBases]
+      summary: Create a knowledge base
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKnowledgeBaseBody"
+      responses:
+        "201":
+          description: Knowledge base created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeBase"
+
+  /knowledge-bases/{knowledgeBaseId}:
+    get:
+      operationId: getKnowledgeBase
+      tags: [knowledgeBases]
+      summary: Get knowledge base details
+      parameters:
+        - name: knowledgeBaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Knowledge base details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeBase"
+    delete:
+      operationId: deleteKnowledgeBase
+      tags: [knowledgeBases]
+      summary: Delete a knowledge base
+      parameters:
+        - name: knowledgeBaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Knowledge base deleted
+
+  /knowledge-bases/{knowledgeBaseId}/documents:
+    get:
+      operationId: listDocuments
+      tags: [knowledgeBases]
+      summary: List documents in a knowledge base
+      parameters:
+        - name: knowledgeBaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+    post:
+      operationId: addDocument
+      tags: [knowledgeBases]
+      summary: Add a document to a knowledge base
+      parameters:
+        - name: knowledgeBaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddDocumentBody"
+      responses:
+        "201":
+          description: Document added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Get analytics overview
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+
+  /analytics/execution-stats:
+    get:
+      operationId: getExecutionStats
+      tags: [analytics]
+      summary: Get execution statistics over time
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+      responses:
+        "200":
+          description: Execution statistics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExecutionStat"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +548,587 @@ components:
       required:
         - status
 
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        role:
+          type: string
+        goal:
+          type: string
+        backstory:
+          type: string
+        model:
+          type: string
+        provider:
+          type: string
+          enum: [openai, anthropic, google, local]
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+        tools:
+          type: array
+          items:
+            type: string
+        memoryEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        systemPrompt:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        executionCount:
+          type: integer
+        avgResponseTime:
+          type: number
+        successRate:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - role
+        - model
+        - provider
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateAgentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        role:
+          type: string
+        goal:
+          type: string
+        backstory:
+          type: string
+        model:
+          type: string
+        provider:
+          type: string
+          enum: [openai, anthropic, google, local]
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+        tools:
+          type: array
+          items:
+            type: string
+        memoryEnabled:
+          type: boolean
+        systemPrompt:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+      required:
+        - name
+        - role
+        - model
+        - provider
+
+    UpdateAgentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        role:
+          type: string
+        goal:
+          type: string
+        backstory:
+          type: string
+        model:
+          type: string
+        provider:
+          type: string
+          enum: [openai, anthropic, google, local]
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+        tools:
+          type: array
+          items:
+            type: string
+        memoryEnabled:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        systemPrompt:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        tags:
+          type: array
+          items:
+            type: string
+        definition:
+          type: object
+          description: JSON workflow graph definition with nodes and edges
+          properties:
+            nodes:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowNode"
+            edges:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowEdge"
+        executionCount:
+          type: integer
+        lastRunAt:
+          type: string
+          format: date-time
+        avgDuration:
+          type: number
+        successRate:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - status
+        - definition
+        - createdAt
+        - updatedAt
+
+    WorkflowNode:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [trigger, agent, condition, transform, output, delay, loop, parallel, webhook, code, llm_call, api_call, knowledge_query]
+        label:
+          type: string
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+        data:
+          type: object
+          description: Node-specific configuration data
+        agentId:
+          type: integer
+      required:
+        - id
+        - type
+        - label
+        - position
+
+    WorkflowEdge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        label:
+          type: string
+        condition:
+          type: string
+      required:
+        - id
+        - source
+        - target
+
+    CreateWorkflowBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        definition:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowNode"
+            edges:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowEdge"
+      required:
+        - name
+        - definition
+
+    UpdateWorkflowBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        tags:
+          type: array
+          items:
+            type: string
+        definition:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowNode"
+            edges:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkflowEdge"
+
+    RunWorkflowBody:
+      type: object
+      properties:
+        inputData:
+          type: object
+        config:
+          type: object
+
+    Execution:
+      type: object
+      properties:
+        id:
+          type: integer
+        workflowId:
+          type: integer
+        workflowName:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        inputData:
+          type: object
+        outputData:
+          type: object
+        error:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        duration:
+          type: number
+        tokensUsed:
+          type: integer
+        cost:
+          type: number
+        currentStep:
+          type: string
+        totalSteps:
+          type: integer
+        completedSteps:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workflowId
+        - status
+        - createdAt
+
+    ExecutionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Execution"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - items
+        - total
+        - limit
+        - offset
+
+    ExecutionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        executionId:
+          type: integer
+        nodeId:
+          type: string
+        nodeName:
+          type: string
+        nodeType:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, skipped]
+        input:
+          type: object
+        output:
+          type: object
+        error:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        duration:
+          type: number
+        tokensUsed:
+          type: integer
+      required:
+        - id
+        - executionId
+        - nodeId
+        - status
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [agent, workflow, starter]
+        icon:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        preview:
+          type: object
+        popularity:
+          type: integer
+      required:
+        - id
+        - name
+        - description
+        - category
+
+    ApplyTemplateResponse:
+      type: object
+      properties:
+        agentId:
+          type: integer
+        workflowId:
+          type: integer
+        message:
+          type: string
+      required:
+        - message
+
+    KnowledgeBase:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        documentCount:
+          type: integer
+        totalChunks:
+          type: integer
+        embeddingModel:
+          type: string
+        status:
+          type: string
+          enum: [ready, indexing, error]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateKnowledgeBaseBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        embeddingModel:
+          type: string
+      required:
+        - name
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+        knowledgeBaseId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        sourceType:
+          type: string
+          enum: [text, url, file]
+        sourceUrl:
+          type: string
+        chunkCount:
+          type: integer
+        status:
+          type: string
+          enum: [processing, indexed, error]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - knowledgeBaseId
+        - title
+        - status
+        - createdAt
+
+    AddDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        sourceType:
+          type: string
+          enum: [text, url, file]
+        sourceUrl:
+          type: string
+      required:
+        - title
+        - content
+
+    AnalyticsOverview:
+      type: object
+      properties:
+        totalAgents:
+          type: integer
+        activeAgents:
+          type: integer
+        totalWorkflows:
+          type: integer
+        activeWorkflows:
+          type: integer
+        totalExecutions:
+          type: integer
+        successfulExecutions:
+          type: integer
+        failedExecutions:
+          type: integer
+        avgExecutionTime:
+          type: number
+        totalTokensUsed:
+          type: integer
+        totalCost:
+          type: number
+        executionTrend:
+          type: number
+        successRateTrend:
+          type: number
+      required:
+        - totalAgents
+        - activeAgents
+        - totalWorkflows
+        - activeWorkflows
+        - totalExecutions
+        - successfulExecutions
+        - failedExecutions
+
+    ExecutionStat:
+      type: object
+      properties:
+        date:
+          type: string
+        total:
+          type: integer
+        successful:
+          type: integer
+        failed:
+          type: integer
+        avgDuration:
+          type: number
+        tokensUsed:
+          type: integer
+      required:
+        - date
+        - total
+        - successful
+        - failed

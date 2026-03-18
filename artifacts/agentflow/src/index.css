@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@xyflow/react/dist/style.css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  /* DARK MODE FIRST - Deep Professional Blue/Purple Theme */
+  --background: 230 25% 6%;
+  --foreground: 210 40% 98%;
+  
+  --card: 230 25% 9%;
+  --card-foreground: 210 40% 98%;
+  --card-border: 230 25% 14%;
+  
+  --popover: 230 25% 9%;
+  --popover-foreground: 210 40% 98%;
+  --popover-border: 230 25% 14%;
+  
+  --primary: 255 85% 65%;
+  --primary-foreground: 210 40% 98%;
+  
+  --secondary: 230 25% 14%;
+  --secondary-foreground: 210 40% 98%;
+  
+  --muted: 230 25% 14%;
+  --muted-foreground: 215 20% 65%;
+  
+  --accent: 190 90% 50%;
+  --accent-foreground: 230 25% 6%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  
+  --border: 230 25% 18%;
+  --input: 230 25% 14%;
+  --ring: 255 85% 65%;
+
+  --chart-1: 255 85% 65%;
+  --chart-2: 190 90% 50%;
+  --chart-3: 320 80% 60%;
+  --chart-4: 45 90% 55%;
+  --chart-5: 160 70% 50%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+  
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-md border border-white/5 shadow-xl transition-all duration-300 hover:border-primary/30 hover:bg-card/80 hover:shadow-primary/5 hover:-translate-y-0.5;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-400 to-accent;
+  }
+
+  .xyflow-custom-node {
+    @apply bg-card/60 backdrop-blur-md border border-white/5 shadow-xl rounded-xl overflow-hidden min-w-[240px] text-sm transition-all duration-300;
+  }
+
+  .xyflow-custom-node-header {
+    @apply px-4 py-3 flex items-center gap-3 border-b border-white/10 font-medium;
+  }
+  
+  .xyflow-custom-node-body {
+    @apply p-4 bg-background/50;
+  }
+
+  /* Custom scrollbar for a sleeker look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* React Flow Overrides for Dark Theme */
+.react-flow__pane {
+  background: transparent !important;
+}
+.react-flow__controls-button {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: 8px !important;
+}
+.react-flow__controls-button:hover {
+  background-color: hsl(var(--secondary)) !important;
+}
+.react-flow__minimap {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+}
+.react-flow__minimap-mask {
+  fill: hsl(var(--primary) / 0.1) !important;
+  stroke: hsl(var(--primary)) !important;
+}
