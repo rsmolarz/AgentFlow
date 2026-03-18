@@ -12,12 +12,14 @@ import {
   Search,
   Bell,
   Menu,
-  X
+  X,
+  Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  { icon: Wand2, label: "AI Builder", href: "/ai-builder", highlight: true },
   { icon: Bot, label: "Agents", href: "/agents" },
   { icon: Workflow, label: "Workflows", href: "/workflows" },
   { icon: ActivitySquare, label: "Executions", href: "/executions" },
@@ -45,11 +47,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isHighlight = (item as any).highlight && !isActive;
             return (
               <Link key={item.href} href={item.href} className="block">
                 <div className={`
                   flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative
-                  ${isActive ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
+                  ${isActive ? 'text-primary-foreground' : isHighlight ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
                 `}>
                   {isActive && (
                     <motion.div 
@@ -59,8 +62,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
+                  {isHighlight && (
+                    <div className="absolute inset-0 border border-primary/30 bg-primary/5 rounded-xl -z-10" />
+                  )}
+                  <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : isHighlight ? 'text-primary' : 'group-hover:text-primary transition-colors'}`} />
                   <span className="font-medium">{item.label}</span>
+                  {isHighlight && <span className="ml-auto text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase">New</span>}
                 </div>
               </Link>
             );

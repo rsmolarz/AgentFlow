@@ -11,6 +11,7 @@ import WorkflowEditor from "./pages/workflow-editor";
 import Executions from "./pages/executions";
 import KnowledgeBases from "./pages/knowledge-bases";
 import Templates from "./pages/templates";
+import AIBuilder from "./pages/ai-builder";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,9 @@ function Router() {
       </Route>
       <Route path="/templates">
         <Layout><Templates /></Layout>
+      </Route>
+      <Route path="/ai-builder">
+        <Layout><AIBuilder /></Layout>
       </Route>
 
       <Route component={NotFound} />

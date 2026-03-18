@@ -745,7 +745,7 @@ components:
           type: string
         type:
           type: string
-          enum: [trigger, agent, condition, transform, output, delay, loop, parallel, webhook, code, llm_call, api_call, knowledge_query]
+          enum: [trigger, agent, condition, transform, output, delay, loop, parallel, webhook, code, llm_call, api_call, knowledge_query, error_handler, human_review, merge]
         label:
           type: string
         position:

@@ -188,6 +188,9 @@ export const ListWorkflowsResponseItem = zod.object({
               "llm_call",
               "api_call",
               "knowledge_query",
+              "error_handler",
+              "human_review",
+              "merge",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -313,6 +316,9 @@ export const GetWorkflowResponse = zod.object({
               "llm_call",
               "api_call",
               "knowledge_query",
+              "error_handler",
+              "human_review",
+              "merge",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -381,6 +387,9 @@ export const UpdateWorkflowBody = zod.object({
               "llm_call",
               "api_call",
               "knowledge_query",
+              "error_handler",
+              "human_review",
+              "merge",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -437,6 +446,9 @@ export const UpdateWorkflowResponse = zod.object({
               "llm_call",
               "api_call",
               "knowledge_query",
+              "error_handler",
+              "human_review",
+              "merge",
             ]),
             label: zod.string(),
             position: zod.object({

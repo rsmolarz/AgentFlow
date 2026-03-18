@@ -47,6 +47,7 @@ artifacts-monorepo/
 
 - **Dashboard** (`/`) - Analytics overview with onboarding checklist (3 steps, localStorage persistence), stat cards with tooltips, execution trends chart, recent executions, quick action cards with descriptions, platform status panel
 - **Agents** (`/agents`) - Grid of AI agent cards with create/delete, search, provider badges (GPT/CLA/GEM), info banner explaining agents, enhanced create form with model options per provider, temperature/memory explanations, help text on every field
+- **AI Builder** (`/ai-builder`) - Natural language workflow builder: describe automations in plain English, system generates workflow structure (nodes + edges) with animated reasoning steps. 6 example prompts, pattern-based generation engine (trigger type detection, agent/condition/loop/delay/error handling), "Create & Open in Builder" saves via API and redirects to editor. Highlighted in sidebar with "New" badge.
 - **Workflows** (`/workflows`) - List of workflows with node counts, run stats, create/delete
 - **Workflow Editor** (`/workflows/:id/edit`) - Full-screen React Flow canvas with:
   - Drag-and-drop node palette with 12 node types: trigger, agent, condition, output, code, llm_call, transform, error_handler, delay, loop, human_review, merge

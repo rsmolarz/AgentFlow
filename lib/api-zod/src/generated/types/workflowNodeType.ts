@@ -23,4 +23,7 @@ export const WorkflowNodeType = {
   llm_call: "llm_call",
   api_call: "api_call",
   knowledge_query: "knowledge_query",
+  error_handler: "error_handler",
+  human_review: "human_review",
+  merge: "merge",
 } as const;
