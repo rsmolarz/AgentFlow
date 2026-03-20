@@ -45,16 +45,37 @@ const PROVIDERS: Provider[] = [
   { id: "together", name: "Together AI", icon: "🔗", configured: false, models: ["llama-3.1-405b", "qwen-2-72b"] },
 ];
 
-const MOCK_API_KEYS = [
-  { id: "key-1", name: "Production API Key", key: "af_prod_sk_...abc123", created: "2026-01-15", lastUsed: "2026-03-20", scopes: ["read", "write", "execute"] },
-  { id: "key-2", name: "Development Key", key: "af_dev_sk_...def456", created: "2026-02-20", lastUsed: "2026-03-19", scopes: ["read", "write"] },
-  { id: "key-3", name: "Webhook Integration", key: "af_wh_sk_...ghi789", created: "2026-03-01", lastUsed: "2026-03-18", scopes: ["execute"] },
+interface ApiKeyEntry {
+  id: string;
+  name: string;
+  key: string;
+  created: string;
+  lastUsed: string;
+  scopes: string[];
+}
+
+const INITIAL_API_KEYS: ApiKeyEntry[] = [
+  { id: "key-1", name: "Production API Key", key: "af_prod_sk_a1b2c3d4e5f6g7h8", created: "2026-01-15", lastUsed: "2026-03-20", scopes: ["read", "write", "execute"] },
+  { id: "key-2", name: "Development Key", key: "af_dev_sk_x9y8z7w6v5u4t3s2", created: "2026-02-20", lastUsed: "2026-03-19", scopes: ["read", "write"] },
+  { id: "key-3", name: "Webhook Integration", key: "af_wh_sk_m1n2o3p4q5r6s7t8", created: "2026-03-01", lastUsed: "2026-03-18", scopes: ["execute"] },
 ];
+
+function generateApiKey(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "af_sk_";
+  for (let i = 0; i < 32; i++) result += chars[Math.floor(Math.random() * chars.length)];
+  return result;
+}
 
 export default function Settings() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("general");
   const [showApiKey, setShowApiKey] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKeyEntry[]>(INITIAL_API_KEYS);
+  const [showCreateKey, setShowCreateKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyScopes, setNewKeyScopes] = useState<string[]>(["read"]);
+  const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null);
 
   const handleSave = () => {
     toast({ title: "Settings saved successfully!" });
@@ -403,29 +424,120 @@ export default function Settings() {
                   <h2 className="text-lg font-semibold">API Keys</h2>
                   <p className="text-sm text-muted-foreground">Manage API keys for external access to AgentFlow.</p>
                 </div>
-                <Button className="bg-primary text-white" size="sm">
+                <Button className="bg-primary text-white" size="sm" onClick={() => { setShowCreateKey(true); setNewKeyName(""); setNewKeyScopes(["read"]); setJustCreatedKey(null); }}>
                   <Plus className="w-4 h-4 mr-1" /> Create Key
                 </Button>
               </div>
 
-              {MOCK_API_KEYS.map(apiKey => (
+              {showCreateKey && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <Key className="w-4 h-4 text-primary" />
+                    {justCreatedKey ? "Key Created Successfully" : "Create New API Key"}
+                  </h3>
+
+                  {justCreatedKey ? (
+                    <div className="space-y-3">
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                        <p className="text-xs text-amber-300 flex items-center gap-1.5 mb-2">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Copy this key now. You won't be able to see it again.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-black/30 px-3 py-1.5 rounded font-mono flex-1 select-all break-all">
+                            {justCreatedKey}
+                          </code>
+                          <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(justCreatedKey); toast({ title: "API key copied to clipboard!" }); }}>
+                            <Copy className="w-3 h-3 mr-1" /> Copy
+                          </Button>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => { setShowCreateKey(false); setJustCreatedKey(null); }}>
+                        Done
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1">Key Name</Label>
+                        <Input placeholder="e.g. My Integration Key" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5 block">Permissions</Label>
+                        <div className="flex gap-3">
+                          {["read", "write", "execute"].map(scope => (
+                            <label key={scope} className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newKeyScopes.includes(scope)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setNewKeyScopes([...newKeyScopes, scope]);
+                                  else setNewKeyScopes(newKeyScopes.filter(s => s !== scope));
+                                }}
+                                className="rounded border-border"
+                              />
+                              <span className="text-sm capitalize">{scope}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={!newKeyName.trim() || newKeyScopes.length === 0}
+                          onClick={() => {
+                            const newKey = generateApiKey();
+                            const today = new Date().toISOString().split("T")[0];
+                            const entry: ApiKeyEntry = {
+                              id: `key-${Date.now()}`,
+                              name: newKeyName.trim(),
+                              key: newKey,
+                              created: today,
+                              lastUsed: "Never",
+                              scopes: [...newKeyScopes],
+                            };
+                            setApiKeys(prev => [...prev, entry]);
+                            setJustCreatedKey(newKey);
+                            toast({ title: `API key "${newKeyName}" created!` });
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" /> Generate Key
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setShowCreateKey(false)}>Cancel</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {apiKeys.map(apiKey => (
                 <div key={apiKey.id} className="rounded-xl border border-white/5 bg-secondary/20 p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-sm">{apiKey.name}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <code className="text-xs bg-secondary px-2 py-0.5 rounded font-mono">
-                          {showApiKey === apiKey.id ? apiKey.key : apiKey.key.replace(/(?<=_sk_).*/, "••••••••")}
+                          {showApiKey === apiKey.id ? apiKey.key : apiKey.key.slice(0, 6) + "••••••••"}
                         </code>
                         <button onClick={() => setShowApiKey(showApiKey === apiKey.id ? null : apiKey.id)}>
                           {showApiKey === apiKey.id ? <EyeOff className="w-3 h-3 text-muted-foreground" /> : <Eye className="w-3 h-3 text-muted-foreground" />}
                         </button>
-                        <button onClick={() => toast({ title: "API key copied!" })}>
+                        <button onClick={() => { navigator.clipboard.writeText(apiKey.key); toast({ title: "API key copied!" }); }}>
                           <Copy className="w-3 h-3 text-muted-foreground" />
                         </button>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm(`Delete API key "${apiKey.name}"?`)) {
+                          setApiKeys(prev => prev.filter(k => k.id !== apiKey.id));
+                          toast({ title: `API key "${apiKey.name}" deleted.` });
+                        }
+                      }}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
