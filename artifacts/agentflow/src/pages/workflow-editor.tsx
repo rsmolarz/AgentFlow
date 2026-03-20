@@ -23,7 +23,8 @@ import {
   Play, Save, ChevronLeft, Bot, Zap, Filter, FileOutput, Code2, ShieldAlert, 
   Sparkles, ArrowRightLeft, X, HelpCircle, Settings2, Clock, Webhook,
   RotateCcw, GitBranch, AlertTriangle, CheckCircle2, Trash2, Copy,
-  Info, ChevronDown, ChevronRight, Timer, RefreshCw, MessageSquare
+  Info, ChevronDown, ChevronRight, Timer, RefreshCw, MessageSquare,
+  Layers, Globe, Database, BookOpen
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,26 @@ const nodeDescriptions: Record<string, { title: string; desc: string; help: stri
     title: "Merge / Join",
     desc: "Combine data from multiple branches",
     help: "The Merge node collects outputs from two or more parallel branches and combines them into a single dataset. Use this after a condition node to rejoin split paths, or to aggregate results from parallel processing."
+  },
+  parallel: {
+    title: "Parallel Execution",
+    desc: "Run multiple branches simultaneously",
+    help: "The Parallel node splits workflow execution into multiple branches that run at the same time. Each branch processes independently and results are collected by a downstream Merge node. Great for speeding up workflows where steps don't depend on each other."
+  },
+  webhook: {
+    title: "Webhook",
+    desc: "Listen for incoming HTTP requests",
+    help: "The Webhook node creates an endpoint that listens for external HTTP requests (POST, GET, etc.). When a request arrives, it triggers the downstream workflow with the request data. Useful for receiving events from third-party services, payment callbacks, or form submissions."
+  },
+  api_call: {
+    title: "API Request",
+    desc: "Make HTTP requests to external APIs",
+    help: "The API Request node sends HTTP requests to any REST API endpoint. Configure the method (GET, POST, PUT, DELETE), URL, headers, and body. Supports authentication, query parameters, and response parsing. Perfect for connecting to any service without a pre-built integration."
+  },
+  knowledge_query: {
+    title: "Knowledge Query",
+    desc: "Search your knowledge bases using RAG",
+    help: "The Knowledge Query node performs a semantic search against your configured knowledge bases. It embeds the query, retrieves the most relevant document chunks, and passes them as context to downstream nodes. Essential for building RAG (Retrieval-Augmented Generation) pipelines."
   }
 };
 
@@ -110,6 +131,10 @@ const nodeConfig: Record<string, { icon: any; color: string; border: string }> =
   loop: { icon: RefreshCw, color: "bg-violet-500/10 text-violet-400", border: "border-violet-500/30" },
   human_review: { icon: MessageSquare, color: "bg-yellow-500/10 text-yellow-400", border: "border-yellow-500/30" },
   merge: { icon: GitBranch, color: "bg-teal-500/10 text-teal-400", border: "border-teal-500/30" },
+  parallel: { icon: Layers, color: "bg-indigo-500/10 text-indigo-400", border: "border-indigo-500/30" },
+  webhook: { icon: Globe, color: "bg-rose-500/10 text-rose-400", border: "border-rose-500/30" },
+  api_call: { icon: Globe, color: "bg-sky-500/10 text-sky-400", border: "border-sky-500/30" },
+  knowledge_query: { icon: BookOpen, color: "bg-lime-500/10 text-lime-400", border: "border-lime-500/30" },
   default: { icon: ShieldAlert, color: "bg-secondary text-foreground", border: "border-border" }
 };
 
@@ -504,6 +529,137 @@ function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: {
                     <SelectItem value="wait_all">Wait for all then pass through</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          )}
+
+          {type === 'parallel' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Number of Branches</Label>
+                <Input type="number" value={localData.branches || 2} onChange={e => update('branches', Number(e.target.value))} className="bg-secondary/50 border-white/10 h-8 text-sm" min={2} max={10} />
+                <p className="text-[10px] text-muted-foreground">How many parallel paths to create. Each branch executes independently.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Wait Mode</Label>
+                <Select value={localData.waitMode || 'all'} onValueChange={v => update('waitMode', v)}>
+                  <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wait for all branches</SelectItem>
+                    <SelectItem value="first">Continue on first completion</SelectItem>
+                    <SelectItem value="majority">Wait for majority</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Timeout (seconds)</Label>
+                <Input type="number" value={localData.parallelTimeout || 30} onChange={e => update('parallelTimeout', Number(e.target.value))} className="bg-secondary/50 border-white/10 h-8 text-sm" min={1} />
+              </div>
+            </div>
+          )}
+
+          {type === 'webhook' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">HTTP Method</Label>
+                <Select value={localData.webhookMethod || 'POST'} onValueChange={v => update('webhookMethod', v)}>
+                  <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value="PUT">PUT</SelectItem>
+                    <SelectItem value="DELETE">DELETE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Webhook Path</Label>
+                <Input value={localData.webhookPath || ''} onChange={e => update('webhookPath', e.target.value)} placeholder="/api/webhook/my-hook" className="bg-secondary/50 border-white/10 h-8 text-sm font-mono" />
+                <p className="text-[10px] text-muted-foreground">The URL path where this webhook will listen for incoming requests.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Authentication</Label>
+                <Select value={localData.webhookAuth || 'none'} onValueChange={v => update('webhookAuth', v)}>
+                  <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Authentication</SelectItem>
+                    <SelectItem value="bearer">Bearer Token</SelectItem>
+                    <SelectItem value="hmac">HMAC Signature</SelectItem>
+                    <SelectItem value="basic">Basic Auth</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                <div>
+                  <Label className="text-xs">Respond Immediately</Label>
+                  <p className="text-[10px] text-muted-foreground">Send 200 OK before processing</p>
+                </div>
+                <Switch checked={localData.respondImmediate || false} onCheckedChange={v => update('respondImmediate', v)} />
+              </div>
+            </div>
+          )}
+
+          {type === 'api_call' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Method</Label>
+                <Select value={localData.apiMethod || 'GET'} onValueChange={v => update('apiMethod', v)}>
+                  <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="PUT">PUT</SelectItem>
+                    <SelectItem value="PATCH">PATCH</SelectItem>
+                    <SelectItem value="DELETE">DELETE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">URL</Label>
+                <Input value={localData.apiUrl || ''} onChange={e => update('apiUrl', e.target.value)} placeholder="https://api.example.com/endpoint" className="bg-secondary/50 border-white/10 h-8 text-sm font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Headers (JSON)</Label>
+                <Textarea value={localData.apiHeaders || ''} onChange={e => update('apiHeaders', e.target.value)} placeholder='{"Authorization": "Bearer {{token}}"}' className="bg-secondary/50 border-white/10 text-sm font-mono resize-none" rows={2} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Request Body (JSON)</Label>
+                <Textarea value={localData.apiBody || ''} onChange={e => update('apiBody', e.target.value)} placeholder='{"key": "value"}' className="bg-secondary/50 border-white/10 text-sm font-mono resize-none" rows={3} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Response Path</Label>
+                <Input value={localData.apiResponsePath || ''} onChange={e => update('apiResponsePath', e.target.value)} placeholder="data.results" className="bg-secondary/50 border-white/10 h-8 text-sm font-mono" />
+                <p className="text-[10px] text-muted-foreground">JSON path to extract from the response (e.g. data.items[0].name)</p>
+              </div>
+            </div>
+          )}
+
+          {type === 'knowledge_query' && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Knowledge Base</Label>
+                <Select value={localData.knowledgeBaseId || ''} onValueChange={v => update('knowledgeBaseId', v)}>
+                  <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue placeholder="Select knowledge base" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kb-1">Product Documentation</SelectItem>
+                    <SelectItem value="kb-2">Customer Support FAQ</SelectItem>
+                    <SelectItem value="kb-3">Internal Wiki</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Query Field</Label>
+                <Input value={localData.queryField || ''} onChange={e => update('queryField', e.target.value)} placeholder="e.g. input.question" className="bg-secondary/50 border-white/10 h-8 text-sm font-mono" />
+                <p className="text-[10px] text-muted-foreground">The field from the previous step to use as the search query.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Top K Results</Label>
+                <Input type="number" value={localData.topK || 5} onChange={e => update('topK', Number(e.target.value))} className="bg-secondary/50 border-white/10 h-8 text-sm" min={1} max={20} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Similarity Threshold</Label>
+                <Input type="number" value={localData.similarityThreshold || 0.7} onChange={e => update('similarityThreshold', Number(e.target.value))} className="bg-secondary/50 border-white/10 h-8 text-sm" min={0} max={1} step={0.05} />
+                <p className="text-[10px] text-muted-foreground">Minimum similarity score (0-1) for retrieved documents. Higher = more relevant but fewer results.</p>
               </div>
             </div>
           )}

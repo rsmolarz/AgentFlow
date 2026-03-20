@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { 
   useListAgents, 
   useCreateAgent, 
@@ -180,6 +181,16 @@ function AgentCard({ agent }: { agent: any }) {
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <Link href={`/agents/${agent.id}/chat`}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-xs text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Open chat playground"
+            >
+              <MessageSquare className="w-3 h-3 mr-1" /> Chat
+            </Button>
+          </Link>
           <Button 
             variant="ghost" 
             size="icon" 

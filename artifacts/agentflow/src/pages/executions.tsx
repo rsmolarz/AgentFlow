@@ -4,7 +4,8 @@ import { format } from "date-fns";
 import { 
   ActivitySquare, Play, CheckCircle2, XCircle, Clock, FileText, ChevronDown, 
   ChevronRight, Zap, Bot, Filter, Code2, Sparkles, ArrowRightLeft, AlertTriangle,
-  Search, RefreshCw, X, Timer, BarChart3, Coins, Info
+  Search, RefreshCw, X, Timer, BarChart3, Coins, Info, Rewind, FastForward,
+  SkipBack, Eye, Layers, GitBranch
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,8 @@ function generateMockSteps(exec: any) {
 
 function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) {
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<'steps' | 'trace' | 'timetravel'>('steps');
+  const [timeTravelIndex, setTimeTravelIndex] = useState(0);
   const { data: apiLogs, isLoading: logsLoading } = useGetExecutionLogs(exec.id);
   
   const steps = apiLogs && apiLogs.length > 0
@@ -127,6 +130,194 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
             Started: {exec.startedAt ? format(new Date(exec.startedAt), "PPpp") : '-'}
           </p>
 
+          <div className="flex items-center gap-1 mb-6 bg-secondary/30 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('steps')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'steps' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <ActivitySquare className="w-3 h-3" /> Steps
+            </button>
+            <button
+              onClick={() => setViewMode('trace')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'trace' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Layers className="w-3 h-3" /> Trace
+            </button>
+            <button
+              onClick={() => setViewMode('timetravel')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'timetravel' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Rewind className="w-3 h-3" /> Time Travel
+            </button>
+          </div>
+
+          {viewMode === 'trace' && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-sm">Trace Timeline (LangSmith-style)</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Visual waterfall showing execution spans, durations, and timing per step.
+              </p>
+              <div className="space-y-1">
+                {steps.map((step, index) => {
+                  const totalDuration = steps.reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0);
+                  const stepDuration = parseFloat(step.duration) || 0;
+                  const startOffset = steps.slice(0, index).reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0);
+                  const widthPct = totalDuration > 0 ? Math.max(8, (stepDuration / totalDuration) * 100) : 25;
+                  const leftPct = totalDuration > 0 ? (startOffset / totalDuration) * 100 : index * 25;
+                  const StepIcon = stepIcons[step.type] || Zap;
+                  const barColor = step.status === 'failed' ? 'bg-red-500' : step.status === 'running' ? 'bg-blue-500' : 
+                    step.type === 'agent' ? 'bg-blue-500' : step.type === 'llm_call' ? 'bg-pink-500' : step.type === 'trigger' ? 'bg-emerald-500' : 'bg-primary';
+
+                  return (
+                    <div key={step.id} className="flex items-center gap-2 group">
+                      <div className="w-28 flex items-center gap-1.5 flex-shrink-0">
+                        <StepIcon className={`w-3 h-3 ${stepColors[step.type] || 'text-muted-foreground'}`} />
+                        <span className="text-[10px] text-muted-foreground truncate">{step.name}</span>
+                      </div>
+                      <div className="flex-1 h-6 bg-secondary/30 rounded relative overflow-hidden">
+                        <div 
+                          className={`absolute top-0.5 bottom-0.5 ${barColor} rounded opacity-80 group-hover:opacity-100 transition-opacity`}
+                          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                        />
+                        <div className="absolute inset-0 flex items-center px-2">
+                          <span className="text-[9px] font-mono text-white/80 drop-shadow-sm" style={{ marginLeft: `${leftPct + 1}%` }}>
+                            {step.duration ? `${step.duration}s` : '...'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-16 text-right flex-shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-mono">{step.tokensUsed ? `${step.tokensUsed}t` : '-'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between mt-3 text-[10px] text-muted-foreground">
+                <span>0s</span>
+                <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-emerald-500" /> Trigger</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-blue-500" /> Agent</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-pink-500" /> LLM</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-red-500" /> Error</span>
+                </span>
+                <span>{exec.duration ? `${exec.duration.toFixed(2)}s` : '-'}</span>
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'timetravel' && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Rewind className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-sm">Time Travel Debugging</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Rewind to any checkpoint during this execution. View the exact state at each step — what data existed, which branches were active, and what the agent was thinking.
+              </p>
+
+              <div className="bg-secondary/30 border border-white/5 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium">Checkpoint {timeTravelIndex + 1} of {steps.length}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {steps[timeTravelIndex]?.startedAt ? format(new Date(steps[timeTravelIndex].startedAt), "HH:mm:ss.SSS") : '-'}
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min={0} 
+                  max={steps.length - 1} 
+                  value={timeTravelIndex}
+                  onChange={e => setTimeTravelIndex(Number(e.target.value))}
+                  className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg"
+                />
+                <div className="flex justify-between mt-1">
+                  {steps.map((step, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => setTimeTravelIndex(i)}
+                      className={`w-2 h-2 rounded-full transition-all ${i === timeTravelIndex ? 'bg-primary scale-150' : i <= timeTravelIndex ? 'bg-primary/50' : 'bg-white/10'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mb-4">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setTimeTravelIndex(Math.max(0, timeTravelIndex - 1))} disabled={timeTravelIndex === 0}>
+                  <SkipBack className="w-3 h-3 mr-1" /> Previous
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setTimeTravelIndex(Math.min(steps.length - 1, timeTravelIndex + 1))} disabled={timeTravelIndex >= steps.length - 1}>
+                  Next <FastForward className="w-3 h-3 ml-1" />
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={() => setTimeTravelIndex(0)}>
+                  <Rewind className="w-3 h-3 mr-1" /> Reset
+                </Button>
+              </div>
+
+              {steps[timeTravelIndex] && (() => {
+                const step = steps[timeTravelIndex];
+                const StepIcon = stepIcons[step.type] || Zap;
+                return (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <StepIcon className={`w-4 h-4 ${stepColors[step.type] || 'text-muted-foreground'}`} />
+                        <span className="text-sm font-medium">{step.name}</span>
+                        <Badge variant="outline" className="ml-auto text-[10px]">{step.status}</Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[10px]">
+                        <div className="bg-background/50 rounded p-2">
+                          <p className="text-muted-foreground">Duration</p>
+                          <p className="font-mono font-medium">{step.duration || '-'}s</p>
+                        </div>
+                        <div className="bg-background/50 rounded p-2">
+                          <p className="text-muted-foreground">Tokens</p>
+                          <p className="font-mono font-medium">{step.tokensUsed?.toLocaleString() || '-'}</p>
+                        </div>
+                        <div className="bg-background/50 rounded p-2">
+                          <p className="text-muted-foreground">Type</p>
+                          <p className="font-mono font-medium capitalize">{step.type.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1 flex items-center gap-1">
+                          <Eye className="w-3 h-3" /> State Before
+                        </p>
+                        <pre className="bg-background/50 border border-white/5 rounded-lg p-2 text-[10px] font-mono text-muted-foreground overflow-x-auto max-h-24">
+                          {JSON.stringify(step.input, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold mb-1 flex items-center gap-1">
+                          <Eye className="w-3 h-3" /> State After
+                        </p>
+                        <pre className="bg-background/50 border border-emerald-500/10 rounded-lg p-2 text-[10px] font-mono text-emerald-400/70 overflow-x-auto max-h-24">
+                          {JSON.stringify(step.output || { pending: true }, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {step.error && (
+                      <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                        <p className="text-[10px] text-red-400 font-semibold flex items-center gap-1 mb-1">
+                          <AlertTriangle className="w-3 h-3" /> Error at this checkpoint
+                        </p>
+                        <p className="text-xs text-red-300">{step.error}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {viewMode === 'steps' && (
+          <>
           <div className="flex items-center gap-2 mb-4">
             <ActivitySquare className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm">Step-by-Step Execution Log</h3>
@@ -215,6 +406,8 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
               );
             })}
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
