@@ -13,7 +13,9 @@ import {
   Bell,
   Menu,
   X,
-  Wand2
+  Wand2,
+  Plug,
+  FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,7 +25,9 @@ const NAV_ITEMS = [
   { icon: Bot, label: "Agents", href: "/agents" },
   { icon: Workflow, label: "Workflows", href: "/workflows" },
   { icon: ActivitySquare, label: "Executions", href: "/executions" },
+  { icon: FlaskConical, label: "Evaluations", href: "/evaluations" },
   { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
+  { icon: Plug, label: "Integrations", href: "/integrations" },
   { icon: Blocks, label: "Templates", href: "/templates" },
 ];
 
@@ -75,10 +79,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
         
         <div className="p-4 border-t border-border">
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all w-full">
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Settings</span>
-          </button>
+          <Link href="/settings" className="block">
+            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all w-full ${
+              location === '/settings' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+            }`}>
+              <Settings className="w-5 h-5" />
+              <span className="font-medium">Settings</span>
+            </div>
+          </Link>
         </div>
       </aside>
 
@@ -160,6 +168,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </div>
                 </Link>
               ))}
+              <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
+                <div className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground mt-4 pt-4 border-t border-border">
+                  <Settings className="w-5 h-5" />
+                  <span className="font-medium">Settings</span>
+                </div>
+              </Link>
             </div>
           </motion.div>
         </div>

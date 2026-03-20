@@ -5,7 +5,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -220,9 +220,19 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
     memoryEnabled: true
   });
 
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [memoryType, setMemoryType] = useState("conversation");
+  const [agentRole, setAgentRole] = useState("worker");
+  const [guardrailsEnabled, setGuardrailsEnabled] = useState(true);
+  const [selectedTools, setSelectedTools] = useState<string[]>(["web_search"]);
+  const [handoffEnabled, setHandoffEnabled] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutate({ data: formData });
+    mutate({ data: {
+      ...formData,
+      systemPrompt: `Role: ${agentRole}. Memory: ${memoryType}. Tools: ${selectedTools.join(', ')}. Guardrails: ${guardrailsEnabled ? 'enabled' : 'disabled'}. Handoffs: ${handoffEnabled ? 'enabled' : 'disabled'}.`,
+    }});
   };
 
   const modelOptions: Record<string, { label: string; desc: string }[]> = {
@@ -369,6 +379,174 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
           <p className="text-[10px] text-muted-foreground mt-2">When enabled, the agent remembers context from previous interactions.</p>
         </div>
       </div>
+
+      <div className="pt-4">
+        <button 
+          type="button"
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+        >
+          <Layers className="w-3.5 h-3.5" />
+          {advancedOpen ? 'Hide' : 'Show'} Advanced Configuration
+        </button>
+      </div>
+
+      {advancedOpen && (
+        <div className="space-y-5 pt-2">
+          <div className="p-4 rounded-xl border border-blue-500/10 bg-blue-500/5 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-400" />
+              Agent Role (CrewAI-style)
+            </h3>
+            <Select value={agentRole} onValueChange={setAgentRole}>
+              <SelectTrigger className="bg-secondary/50 border-white/10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="worker">Worker — Executes tasks independently</SelectItem>
+                <SelectItem value="researcher">Researcher — Gathers and analyzes information</SelectItem>
+                <SelectItem value="writer">Writer — Creates and edits content</SelectItem>
+                <SelectItem value="reviewer">Reviewer — Validates and quality-checks outputs</SelectItem>
+                <SelectItem value="coordinator">Coordinator — Orchestrates other agents</SelectItem>
+                <SelectItem value="analyst">Analyst — Data analysis and insights</SelectItem>
+                <SelectItem value="custom">Custom Role</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">Roles determine how this agent collaborates in multi-agent workflows. A coordinator can delegate tasks to workers and reviewers.</p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-purple-500/10 bg-purple-500/5 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Brain className="w-4 h-4 text-purple-400" />
+              Memory Configuration
+            </h3>
+            <Select value={memoryType} onValueChange={setMemoryType}>
+              <SelectTrigger className="bg-secondary/50 border-white/10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="conversation">Conversation Memory — Last N messages</SelectItem>
+                <SelectItem value="summary">Summary Memory — Condensed conversation history</SelectItem>
+                <SelectItem value="semantic">Semantic Memory — Vector-based recall by meaning</SelectItem>
+                <SelectItem value="persistent">Persistent Memory — Cross-session long-term memory</SelectItem>
+                <SelectItem value="none">No Memory</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                <div>
+                  <p className="text-[10px] font-medium">Cross-Thread</p>
+                  <p className="text-[8px] text-muted-foreground">Share memory across conversations</p>
+                </div>
+                <Switch />
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                <div>
+                  <p className="text-[10px] font-medium">Semantic Search</p>
+                  <p className="text-[8px] text-muted-foreground">Find by meaning, not keywords</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Memory lets agents remember context. Conversation memory stores recent messages; semantic memory uses embeddings to recall relevant past interactions by meaning.</p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-emerald-500/10 bg-emerald-500/5 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-emerald-400" />
+              Available Tools
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "web_search", label: "Web Search", desc: "Search the internet" },
+                { id: "code_exec", label: "Code Execution", desc: "Run JS/Python code" },
+                { id: "file_search", label: "File Search", desc: "Search uploaded documents" },
+                { id: "api_call", label: "API Requests", desc: "Make HTTP requests" },
+                { id: "sql_query", label: "SQL Query", desc: "Query databases" },
+                { id: "calculator", label: "Calculator", desc: "Math operations" },
+                { id: "knowledge_base", label: "Knowledge Base", desc: "RAG retrieval" },
+                { id: "image_gen", label: "Image Generation", desc: "Create images" },
+              ].map(tool => (
+                <label key={tool.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                  selectedTools.includes(tool.id) ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/5 bg-secondary/30 hover:border-white/10'
+                }`}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedTools.includes(tool.id)}
+                    onChange={e => {
+                      if (e.target.checked) setSelectedTools([...selectedTools, tool.id]);
+                      else setSelectedTools(selectedTools.filter(t => t !== tool.id));
+                    }}
+                    className="sr-only"
+                  />
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                    selectedTools.includes(tool.id) ? 'bg-emerald-500 border-emerald-500' : 'border-white/20'
+                  }`}>
+                    {selectedTools.includes(tool.id) && <span className="text-[8px] text-white">✓</span>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium">{tool.label}</p>
+                    <p className="text-[8px] text-muted-foreground">{tool.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-amber-500/10 bg-amber-500/5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-400" />
+                Guardrails
+              </h3>
+              <Switch checked={guardrailsEnabled} onCheckedChange={setGuardrailsEnabled} />
+            </div>
+            {guardrailsEnabled && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                  <div>
+                    <p className="text-[10px] font-medium">Input Validation</p>
+                    <p className="text-[8px] text-muted-foreground">Block prompt injection</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                  <div>
+                    <p className="text-[10px] font-medium">Output Moderation</p>
+                    <p className="text-[8px] text-muted-foreground">Filter harmful content</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                  <div>
+                    <p className="text-[10px] font-medium">PII Detection</p>
+                    <p className="text-[8px] text-muted-foreground">Redact personal data</p>
+                  </div>
+                  <Switch />
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                  <div>
+                    <p className="text-[10px] font-medium">Token Limit</p>
+                    <p className="text-[8px] text-muted-foreground">Cap response length</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 rounded-xl border border-cyan-500/10 bg-cyan-500/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-cyan-400" />
+                Agent Handoffs
+              </h3>
+              <Switch checked={handoffEnabled} onCheckedChange={setHandoffEnabled} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Allow this agent to transfer control to other agents mid-conversation. The receiving agent gets the full conversation context.</p>
+          </div>
+        </div>
+      )}
 
       <div className="pt-6 flex justify-end gap-3 border-t border-white/5">
         <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>

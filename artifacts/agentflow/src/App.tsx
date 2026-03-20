@@ -12,6 +12,9 @@ import Executions from "./pages/executions";
 import KnowledgeBases from "./pages/knowledge-bases";
 import Templates from "./pages/templates";
 import AIBuilder from "./pages/ai-builder";
+import Integrations from "./pages/integrations";
+import Evaluations from "./pages/evaluations";
+import Settings from "./pages/settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -48,6 +51,15 @@ function Router() {
       </Route>
       <Route path="/ai-builder">
         <Layout><AIBuilder /></Layout>
+      </Route>
+      <Route path="/integrations">
+        <Layout><Integrations /></Layout>
+      </Route>
+      <Route path="/evaluations">
+        <Layout><Evaluations /></Layout>
+      </Route>
+      <Route path="/settings">
+        <Layout><Settings /></Layout>
       </Route>
 
       <Route component={NotFound} />

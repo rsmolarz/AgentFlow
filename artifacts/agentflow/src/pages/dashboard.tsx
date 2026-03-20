@@ -394,27 +394,52 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Shield className="w-5 h-5 text-emerald-400" />
-          Platform Status
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            <span className="text-sm text-muted-foreground">API Server</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-emerald-400" />
+            Cost Breakdown by Provider
+          </h2>
+          <div className="space-y-3">
+            {[
+              { provider: "OpenAI", model: "GPT-4o", tokens: 245000, cost: 3.68, pct: 52, color: "bg-emerald-500" },
+              { provider: "Anthropic", model: "Claude 3.5 Sonnet", tokens: 156000, cost: 2.34, pct: 33, color: "bg-blue-500" },
+              { provider: "Google", model: "Gemini 1.5 Pro", tokens: 67000, cost: 0.67, pct: 15, color: "bg-amber-500" },
+            ].map(p => (
+              <div key={p.provider} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{p.provider} <span className="text-muted-foreground font-normal text-xs">({p.model})</span></span>
+                  <span className="text-xs text-muted-foreground">${p.cost.toFixed(2)} &middot; {(p.tokens / 1000).toFixed(0)}k tokens</span>
+                </div>
+                <div className="w-full bg-secondary/50 rounded-full h-2">
+                  <div className={`${p.color} rounded-full h-2 transition-all`} style={{ width: `${p.pct}%` }} />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            <span className="text-sm text-muted-foreground">Database</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            <span className="text-sm text-muted-foreground">AI Providers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            <span className="text-sm text-muted-foreground">Queue System</span>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            Platform Status
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { name: "API Server", status: "healthy" },
+              { name: "PostgreSQL", status: "healthy" },
+              { name: "OpenAI", status: "healthy" },
+              { name: "Anthropic", status: "healthy" },
+              { name: "Google AI", status: "healthy" },
+              { name: "Vector Store", status: "healthy" },
+              { name: "Queue System", status: "healthy" },
+              { name: "MCP Server", status: "healthy" },
+            ].map(s => (
+              <div key={s.name} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30">
+                <div className={`w-2 h-2 rounded-full ${s.status === 'healthy' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+                <span className="text-sm text-muted-foreground">{s.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
