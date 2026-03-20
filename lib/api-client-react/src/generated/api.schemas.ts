@@ -521,3 +521,59 @@ export const GetExecutionStatsPeriod = {
   week: "week",
   month: "month",
 } as const;
+
+export type FeatureRequestPriority = (typeof FeatureRequestPriority)[keyof typeof FeatureRequestPriority];
+export const FeatureRequestPriority = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export type FeatureRequestStatus = (typeof FeatureRequestStatus)[keyof typeof FeatureRequestStatus];
+export const FeatureRequestStatus = {
+  pending: "pending",
+  in_progress: "in_progress",
+  completed: "completed",
+  rejected: "rejected",
+} as const;
+
+export interface FeatureRequest {
+  id: number;
+  title: string;
+  description?: string;
+  category: string;
+  priority: FeatureRequestPriority;
+  status: FeatureRequestStatus;
+  votes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListFeatureRequestsParams = {
+  status?: FeatureRequestStatus;
+  category?: string;
+  search?: string;
+  sort?: "votes" | "newest" | "priority";
+};
+
+export type CreateFeatureRequestBody = {
+  title: string;
+  description?: string;
+  category?: string;
+  priority?: FeatureRequestPriority;
+};
+
+export type UpdateFeatureRequestBody = {
+  title?: string;
+  description?: string;
+  category?: string;
+  priority?: FeatureRequestPriority;
+  status?: FeatureRequestStatus;
+};
+
+export interface FeatureRequestExport {
+  featureRequests: FeatureRequest[];
+  exportedAt: string;
+  total: number;
+}

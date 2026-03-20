@@ -788,3 +788,43 @@ export const GetExecutionStatsResponseItem = zod.object({
 export const GetExecutionStatsResponse = zod.array(
   GetExecutionStatsResponseItem,
 );
+
+export const ListFeatureRequestsQueryParams = zod.object({
+  status: zod.enum(["pending", "in_progress", "completed", "rejected"]).optional(),
+  category: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  sort: zod.enum(["votes", "newest", "priority"]).optional(),
+});
+
+export const CreateFeatureRequestBody = zod.object({
+  title: zod.string().min(1),
+  description: zod.string().optional(),
+  category: zod.string().optional(),
+  priority: zod.enum(["low", "medium", "high", "critical"]).optional(),
+});
+
+export const UpdateFeatureRequestBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  category: zod.string().optional(),
+  priority: zod.enum(["low", "medium", "high", "critical"]).optional(),
+  status: zod.enum(["pending", "in_progress", "completed", "rejected"]).optional(),
+});
+
+export const FeatureRequestResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  category: zod.string(),
+  priority: zod.string(),
+  status: zod.string(),
+  votes: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const FeatureRequestExportResponse = zod.object({
+  featureRequests: zod.array(FeatureRequestResponseItem),
+  exportedAt: zod.string(),
+  total: zod.number(),
+});

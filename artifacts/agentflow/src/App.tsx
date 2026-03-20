@@ -16,6 +16,7 @@ import Integrations from "./pages/integrations";
 import Evaluations from "./pages/evaluations";
 import Settings from "./pages/settings";
 import AgentChat from "./pages/agent-chat";
+import FeatureRequests from "./pages/feature-requests";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -62,6 +63,9 @@ function Router() {
       </Route>
       <Route path="/settings">
         <Layout><Settings /></Layout>
+      </Route>
+      <Route path="/feature-requests">
+        <Layout><FeatureRequests /></Layout>
       </Route>
 
       <Route component={NotFound} />

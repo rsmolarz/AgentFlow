@@ -15,7 +15,8 @@ import {
   X,
   Wand2,
   Plug,
-  FlaskConical
+  FlaskConical,
+  Lightbulb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
   { icon: Plug, label: "Integrations", href: "/integrations" },
   { icon: Blocks, label: "Templates", href: "/templates" },
+  { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

@@ -65,6 +65,7 @@ artifacts-monorepo/
 - **Templates** (`/templates`) - Gallery split by agent/workflow categories, info banner explaining templates, category badges, tag display
 - **Integrations** (`/integrations`) - Marketplace with 82+ integrations across 12 categories (LLM Providers, Communication, Databases, Productivity, Developer Tools, CRM & Sales, Cloud Storage, Analytics, Payments, Vector Stores, Media). Search/filter by category, connect/disconnect toggle with state tracking, connected count, node counts, popular badges, custom integration section (HTTP Request + Code nodes)
 - **Evaluations** (`/evaluations`) - LangSmith-style evaluation monitoring: quality score summary (accuracy, relevance, coherence, safety) with animated SVG ring charts, stat cards (avg quality, total tests, pass rate, eval cost), expandable evaluation run list with per-run metrics and metric bars, filter by status, "Run Evaluation" button
+- **Feature Requests** (`/feature-requests`) - Feature request tracking with voting, search/filter by status and sort by votes/priority/newest. Create new requests with title/description/category/priority. Vote on requests with upvote button. Export all as JSON via `/api/feature-requests/export/json`. Stat cards (total, pending, in progress, completed). Delete with confirmation. Categories include general, workflow, agents, integrations, analytics, knowledge_base, ui_ux, performance, security, doctor_pipeline.
 - **Settings** (`/settings`) - 7-tab settings page: General (platform name, default provider/model, cost controls, token budget, streaming), LLM Providers (10+ providers with connected status, model lists, API key fields), MCP Server (enable/disable, URL, auth, tools, version), Security & SSO (SAML/OIDC, identity providers, rate limiting, IP whitelist, audit logging), API Keys (generate/revoke, scoped permissions), Notifications (email/Slack/webhook alerts), Advanced (parallel execution, time travel debugging, code runtime, guardrails config)
 
 ## API Routes
@@ -84,6 +85,10 @@ All routes mounted under `/api`:
 - `POST /api/templates/:id/apply` - Apply template (creates agent/workflow)
 - `GET /api/analytics/overview` - Dashboard analytics
 - `GET /api/analytics/execution-trends` - Execution trends (last 7 days)
+- `GET/POST /api/feature-requests` - List/create feature requests (filter by status, category, search; sort by votes/newest/priority)
+- `GET /api/feature-requests/export/json` - Export all feature requests as JSON
+- `GET/PUT/DELETE /api/feature-requests/:id` - Feature request CRUD
+- `POST /api/feature-requests/:id/vote` - Upvote a feature request
 
 ## Database Schema
 
@@ -93,6 +98,7 @@ Tables in `lib/db/src/schema/`:
 - `executions` - Execution records with status, duration, tokens, step logs
 - `knowledgeBases` - Knowledge base metadata with document/chunk counts
 - `documents` - Documents belonging to knowledge bases
+- `featureRequests` - Feature requests with title, description, category, priority, status, votes
 
 Seed script: `pnpm --filter @workspace/scripts run seed`
 

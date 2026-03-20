@@ -24,22 +24,27 @@ import type {
   CreateAgentBody,
   CreateKnowledgeBaseBody,
   CreateWorkflowBody,
+  CreateFeatureRequestBody,
   Document,
   Execution,
   ExecutionList,
   ExecutionLog,
   ExecutionStat,
+  FeatureRequest,
+  FeatureRequestExport,
   GetAnalyticsOverviewParams,
   GetExecutionStatsParams,
   HealthStatus,
   KnowledgeBase,
   ListAgentsParams,
   ListExecutionsParams,
+  ListFeatureRequestsParams,
   ListTemplatesParams,
   ListWorkflowsParams,
   RunWorkflowBody,
   Template,
   UpdateAgentBody,
+  UpdateFeatureRequestBody,
   UpdateWorkflowBody,
   Workflow,
 } from "./api.schemas";
@@ -2331,5 +2336,286 @@ export function useGetExecutionStats<
     queryKey: QueryKey;
   };
 
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getListFeatureRequestsUrl = (params?: ListFeatureRequestsParams) => {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.category) searchParams.set("category", params.category);
+  if (params?.search) searchParams.set("search", params.search);
+  if (params?.sort) searchParams.set("sort", params.sort);
+  const query = searchParams.toString();
+  return `/api/feature-requests${query ? `?${query}` : ""}`;
+};
+
+export const listFeatureRequests = async (
+  params?: ListFeatureRequestsParams,
+  options?: RequestInit,
+): Promise<FeatureRequest[]> => {
+  return customFetch<FeatureRequest[]>(getListFeatureRequestsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFeatureRequestsQueryKey = (params?: ListFeatureRequestsParams) => {
+  return [`/api/feature-requests`, ...(params ? [params] : [])] as const;
+};
+
+export const getListFeatureRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFeatureRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFeatureRequestsParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listFeatureRequests>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListFeatureRequestsQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listFeatureRequests>>> = ({ signal }) =>
+    listFeatureRequests(params, { signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFeatureRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useListFeatureRequests<
+  TData = Awaited<ReturnType<typeof listFeatureRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListFeatureRequestsParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listFeatureRequests>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFeatureRequestsQueryOptions(params, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const createFeatureRequest = async (
+  body: BodyType<CreateFeatureRequestBody>,
+  options?: RequestInit,
+): Promise<FeatureRequest> => {
+  return customFetch<FeatureRequest>(`/api/feature-requests`, {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+};
+
+export const getCreateFeatureRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFeatureRequest>>,
+    TError,
+    { data: BodyType<CreateFeatureRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFeatureRequest>>,
+  TError,
+  { data: BodyType<CreateFeatureRequestBody> },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFeatureRequest>>,
+    { data: BodyType<CreateFeatureRequestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+    return createFeatureRequest(data, options?.request);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useCreateFeatureRequest<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFeatureRequest>>,
+    TError,
+    { data: BodyType<CreateFeatureRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFeatureRequest>>,
+  TError,
+  { data: BodyType<CreateFeatureRequestBody> },
+  TContext
+> {
+  const mutationOptions = getCreateFeatureRequestMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const voteFeatureRequest = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FeatureRequest> => {
+  return customFetch<FeatureRequest>(`/api/feature-requests/${id}/vote`, {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getVoteFeatureRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof voteFeatureRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof voteFeatureRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof voteFeatureRequest>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+    return voteFeatureRequest(id, options?.request);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useVoteFeatureRequest<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof voteFeatureRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof voteFeatureRequest>>,
+  TError,
+  { id: number },
+  TContext
+> {
+  const mutationOptions = getVoteFeatureRequestMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const deleteFeatureRequest = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(`/api/feature-requests/${id}`, {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteFeatureRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFeatureRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteFeatureRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteFeatureRequest>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+    return deleteFeatureRequest(id, options?.request);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useDeleteFeatureRequest<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFeatureRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteFeatureRequest>>,
+  TError,
+  { id: number },
+  TContext
+> {
+  const mutationOptions = getDeleteFeatureRequestMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const exportFeatureRequests = async (
+  options?: RequestInit,
+): Promise<FeatureRequestExport> => {
+  return customFetch<FeatureRequestExport>(`/api/feature-requests/export/json`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportFeatureRequestsQueryKey = () => {
+  return [`/api/feature-requests/export/json`] as const;
+};
+
+export const getExportFeatureRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportFeatureRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof exportFeatureRequests>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getExportFeatureRequestsQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof exportFeatureRequests>>> = ({ signal }) =>
+    exportFeatureRequests({ signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportFeatureRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useExportFeatureRequests<
+  TData = Awaited<ReturnType<typeof exportFeatureRequests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof exportFeatureRequests>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportFeatureRequestsQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
   return { ...query, queryKey: queryOptions.queryKey };
 }
