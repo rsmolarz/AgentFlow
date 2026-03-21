@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { useRoute } from "wouter";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   ReactFlow, 
   MiniMap, 
@@ -24,7 +25,7 @@ import {
   Sparkles, ArrowRightLeft, X, HelpCircle, Settings2, Clock, Webhook,
   RotateCcw, GitBranch, AlertTriangle, CheckCircle2, Trash2, Copy,
   Info, ChevronDown, ChevronRight, Timer, RefreshCw, MessageSquare,
-  Layers, Globe, Database, BookOpen
+  Layers, Globe, Database, BookOpen, History, RotateCw, Loader2
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -696,11 +697,152 @@ function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: {
   );
 }
 
+interface WorkflowVersion {
+  id: number;
+  workflowId: number;
+  version: number;
+  label: string;
+  definition: { nodes: any[]; edges: any[] };
+  nodeCount: number;
+  edgeCount: number;
+  createdAt: string;
+}
+
+function VersionHistoryPanel({ workflowId, onRestore, onClose }: {
+  workflowId: number;
+  onRestore: (def: { nodes: any[]; edges: any[] }) => void;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const BASE = import.meta.env.BASE_URL;
+  const [restoring, setRestoring] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<number | null>(null);
+
+  const { data: versions, isLoading } = useQuery<WorkflowVersion[]>({
+    queryKey: [`/api/workflows/${workflowId}/versions`],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}api/workflows/${workflowId}/versions`);
+      if (!r.ok) throw new Error("Failed to fetch versions");
+      return r.json();
+    },
+  });
+
+  const handleRestore = async (version: WorkflowVersion) => {
+    setRestoring(version.id);
+    try {
+      const r = await fetch(`${BASE}api/workflows/${workflowId}/versions/${version.id}/restore`, { method: "POST" });
+      if (!r.ok) throw new Error("Failed to restore");
+      const workflow = await r.json();
+      onRestore(workflow.definition);
+      queryClient.invalidateQueries({ queryKey: [`/api/workflows/${workflowId}/versions`] });
+      toast({ title: `Restored to ${version.label}`, description: `${version.nodeCount} nodes, ${version.edgeCount} edges` });
+    } catch (e: any) {
+      toast({ title: "Restore failed", description: e.message, variant: "destructive" });
+    } finally {
+      setRestoring(null);
+    }
+  };
+
+  const previewVersion = previewId !== null ? versions?.find(v => v.id === previewId) : null;
+
+  return (
+    <aside className="w-80 border-l border-white/5 bg-card/40 backdrop-blur-md flex flex-col z-10 shadow-2xl overflow-hidden">
+      <div className="p-4 border-b border-white/5 flex items-center justify-between">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <History className="w-4 h-4 text-primary" />
+          Version History
+        </h3>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+      </div>
+
+      {previewVersion ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <button onClick={() => setPreviewId(null)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+            <ChevronLeft className="w-3 h-3" /> Back to list
+          </button>
+          <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+            <p className="font-medium text-sm">{previewVersion.label}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {new Date(previewVersion.createdAt).toLocaleString()}
+            </p>
+            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+              <span>{previewVersion.nodeCount} nodes</span>
+              <span>{previewVersion.edgeCount} edges</span>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-secondary/30 border border-white/5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Nodes in this version</p>
+            {previewVersion.definition.nodes?.length > 0 ? (
+              <div className="space-y-1.5">
+                {previewVersion.definition.nodes.map((n: any) => (
+                  <div key={n.id} className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    <span>{n.data?.label || n.type || "Node"}</span>
+                    <span className="text-muted-foreground ml-auto">{n.type}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Empty workflow</p>
+            )}
+          </div>
+          <Button className="w-full" onClick={() => handleRestore(previewVersion)} disabled={restoring === previewVersion.id}>
+            {restoring === previewVersion.id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCw className="w-4 h-4 mr-2" />}
+            Restore This Version
+          </Button>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-3">
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+          ) : versions && versions.length > 0 ? (
+            <div className="space-y-1.5">
+              {versions.map((v) => (
+                <div
+                  key={v.id}
+                  className="p-3 rounded-xl border border-white/5 hover:border-primary/20 bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-colors group"
+                  onClick={() => setPreviewId(v.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{v.label}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRestore(v); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-primary hover:underline flex items-center gap-1"
+                      disabled={restoring === v.id}
+                    >
+                      {restoring === v.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCw className="w-3 h-3" />}
+                      Restore
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                    <span>{v.nodeCount} nodes</span>
+                    <span>{v.edgeCount} edges</span>
+                    <span className="ml-auto">{new Date(v.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <History className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-40" />
+              <p className="text-sm text-muted-foreground">No versions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Save your workflow to create the first version snapshot.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 function EditorCanvas({ id }: { id: number }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
   
   const { data: workflow, isLoading } = useGetWorkflow(id);
   const { mutate: updateWorkflow, isPending: isSaving } = useUpdateWorkflow();
@@ -775,8 +917,16 @@ function EditorCanvas({ id }: { id: number }) {
       workflowId: id,
       data: { definition: { nodes, edges } as any }
     }, {
-      onSuccess: () => toast({ title: "Workflow saved!" })
+      onSuccess: () => {
+        toast({ title: "Workflow saved!" });
+        queryClient.invalidateQueries({ queryKey: [`/api/workflows/${id}/versions`] });
+      }
     });
+  };
+
+  const handleVersionRestore = (def: { nodes: any[]; edges: any[] }) => {
+    setNodes(def.nodes || []);
+    setEdges(def.edges || []);
   };
 
   const handleRun = () => {
@@ -906,6 +1056,13 @@ function EditorCanvas({ id }: { id: number }) {
           <Panel position="top-right" className="m-4 flex gap-2">
             <Button 
               variant="outline" 
+              className={`bg-card/80 backdrop-blur-md border-white/10 hover:bg-secondary ${showVersions ? "border-primary/50 text-primary" : ""}`}
+              onClick={() => { setShowVersions(!showVersions); if (!showVersions) setSelectedNode(null); }}
+            >
+              <History className="w-4 h-4 mr-2" /> History
+            </Button>
+            <Button 
+              variant="outline" 
               className="bg-card/80 backdrop-blur-md border-white/10 hover:bg-secondary"
               onClick={handleSave}
               disabled={isSaving}
@@ -937,13 +1094,21 @@ function EditorCanvas({ id }: { id: number }) {
         </ReactFlow>
       </main>
 
-      {selectedNode && (
+      {selectedNode && !showVersions && (
         <NodeConfigPanel 
           node={selectedNode} 
           agents={agents || []} 
           onUpdate={handleNodeUpdate} 
           onClose={() => setSelectedNode(null)}
           onDelete={handleNodeDelete}
+        />
+      )}
+
+      {showVersions && (
+        <VersionHistoryPanel
+          workflowId={id}
+          onRestore={handleVersionRestore}
+          onClose={() => setShowVersions(false)}
         />
       )}
     </div>
