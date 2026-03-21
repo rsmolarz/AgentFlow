@@ -280,6 +280,80 @@ router.get("/executions/:executionId/logs", async (req, res) => {
   }
 });
 
+router.get("/executions/:executionId/logs/stream", async (req, res) => {
+  try {
+    const executionId = Number(req.params.executionId);
+    if (isNaN(executionId)) return res.status(400).json({ error: "Invalid execution ID" });
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+
+    let lastLogCount = 0;
+    let lastStatus = "";
+
+    const sendUpdate = async () => {
+      const logs = await db
+        .select()
+        .from(executionLogsTable)
+        .where(eq(executionLogsTable.executionId, executionId))
+        .orderBy(executionLogsTable.id);
+
+      const [execution] = await db
+        .select()
+        .from(executionsTable)
+        .where(eq(executionsTable.id, executionId));
+
+      const completedLogs = logs.filter(l => l.status !== "pending");
+
+      if (completedLogs.length !== lastLogCount || execution?.status !== lastStatus) {
+        lastLogCount = completedLogs.length;
+        lastStatus = execution?.status || "";
+
+        res.write(
+          `data: ${JSON.stringify({
+            logs: completedLogs,
+            execution: execution
+              ? { status: execution.status, completedSteps: execution.completedSteps, totalSteps: execution.totalSteps, currentStep: execution.currentStep }
+              : null,
+          })}\n\n`
+        );
+      }
+
+      if (execution?.status === "completed" || execution?.status === "failed") {
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+        return true;
+      }
+      return false;
+    };
+
+    await sendUpdate();
+
+    const interval = setInterval(async () => {
+      try {
+        const done = await sendUpdate();
+        if (done) clearInterval(interval);
+      } catch {
+        clearInterval(interval);
+        res.end();
+      }
+    }, 1000);
+
+    req.on("close", () => {
+      clearInterval(interval);
+    });
+  } catch (error: any) {
+    if (!res.headersSent) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+});
+
 router.post("/workflows/:workflowId/bulk-run", async (req, res) => {
   try {
     const workflowId = Number(req.params.workflowId);

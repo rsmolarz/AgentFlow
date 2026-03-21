@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useListExecutions, useGetExecutionLogs } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -7,7 +7,7 @@ import {
   ActivitySquare, Play, CheckCircle2, XCircle, Clock, FileText, ChevronDown, 
   ChevronRight, Zap, Bot, Filter, Code2, Sparkles, ArrowRightLeft, AlertTriangle,
   Search, RefreshCw, X, Timer, BarChart3, Coins, Info, Rewind, FastForward,
-  SkipBack, Eye, Layers, GitBranch, RotateCcw, Loader2
+  SkipBack, Eye, Layers, GitBranch, RotateCcw, Loader2, Radio
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,9 +50,154 @@ function generateMockSteps(exec: any) {
   }));
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+function LiveLogStream({ executionId, status }: { executionId: number; status: string }) {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [execState, setExecState] = useState<any>(null);
+  const [connected, setConnected] = useState(false);
+  const [done, setDone] = useState(status === "completed" || status === "failed");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  useEffect(() => {
+    const es = new EventSource(`${API_BASE}/api/executions/${executionId}/logs/stream`);
+    
+    es.onopen = () => setConnected(true);
+    
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.done) {
+          setDone(true);
+          es.close();
+          return;
+        }
+        if (data.logs) setLogs(data.logs);
+        if (data.execution) setExecState(data.execution);
+      } catch {}
+    };
+
+    es.onerror = () => {
+      setConnected(false);
+      es.close();
+    };
+
+    return () => es.close();
+  }, [executionId]);
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [logs, autoScroll]);
+
+  const getLogColor = (status: string) => {
+    switch (status) {
+      case "completed": return "text-emerald-400";
+      case "failed": return "text-red-400";
+      case "running": return "text-blue-400";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Radio className="w-4 h-4 text-primary" />
+        <h3 className="font-semibold text-sm">Live Execution Logs</h3>
+        <div className="ml-auto flex items-center gap-2">
+          {!done && (
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+              {connected ? "Streaming" : "Disconnected"}
+            </span>
+          )}
+          {done && (
+            <Badge variant="outline" className="text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Complete
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {execState && (
+        <div className="bg-secondary/30 border border-white/5 rounded-lg p-3 mb-3 flex items-center gap-4 text-xs">
+          <span className="text-muted-foreground">Status: <span className="text-foreground font-medium capitalize">{execState.status}</span></span>
+          <span className="text-muted-foreground">Steps: <span className="text-foreground font-medium">{execState.completedSteps}/{execState.totalSteps}</span></span>
+          {execState.currentStep && (
+            <span className="text-muted-foreground">Current: <span className="text-foreground font-medium">{execState.currentStep}</span></span>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-muted-foreground">
+          {logs.length} log {logs.length === 1 ? "entry" : "entries"}
+        </p>
+        <button
+          onClick={() => setAutoScroll(!autoScroll)}
+          className={`text-[10px] px-2 py-0.5 rounded ${autoScroll ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}
+        >
+          Auto-scroll {autoScroll ? "ON" : "OFF"}
+        </button>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="bg-black/40 border border-white/5 rounded-xl font-mono text-xs overflow-y-auto max-h-[400px] p-3 space-y-1"
+      >
+        {logs.length === 0 ? (
+          <div className="flex items-center justify-center h-20 text-muted-foreground">
+            {!done ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Waiting for logs...
+              </>
+            ) : (
+              "No log entries recorded"
+            )}
+          </div>
+        ) : (
+          logs.map((log, i) => (
+            <div key={log.id || i} className="flex gap-2 hover:bg-white/5 rounded px-1 py-0.5">
+              <span className="text-muted-foreground/60 w-6 text-right flex-shrink-0">{i + 1}</span>
+              <span className="text-muted-foreground/50 flex-shrink-0">
+                {log.startedAt ? format(new Date(log.startedAt), "HH:mm:ss") : "--:--:--"}
+              </span>
+              <span className={`flex-shrink-0 w-14 ${getLogColor(log.status)}`}>
+                [{log.status?.toUpperCase()?.slice(0, 4) || "PEND"}]
+              </span>
+              <span className="text-cyan-400 flex-shrink-0">{log.nodeName || log.nodeId}</span>
+              <span className="text-muted-foreground truncate">
+                {log.error
+                  ? `ERROR: ${log.error}`
+                  : log.output
+                    ? `→ ${typeof log.output === "string" ? log.output : JSON.stringify(log.output).slice(0, 100)}`
+                    : log.status === "running"
+                      ? "Processing..."
+                      : ""}
+              </span>
+              {log.duration && (
+                <span className="ml-auto text-muted-foreground/60 flex-shrink-0">{Number(log.duration).toFixed(1)}s</span>
+              )}
+            </div>
+          ))
+        )}
+        {!done && logs.length > 0 && (
+          <div className="flex items-center gap-2 text-muted-foreground/50 pt-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>Streaming...</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) {
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
-  const [viewMode, setViewMode] = useState<'steps' | 'trace' | 'timetravel'>('steps');
+  const [viewMode, setViewMode] = useState<'steps' | 'trace' | 'timetravel' | 'live'>('steps');
   const [timeTravelIndex, setTimeTravelIndex] = useState(0);
   const { data: apiLogs, isLoading: logsLoading } = useGetExecutionLogs(exec.id);
   
@@ -150,6 +295,12 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'timetravel' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Rewind className="w-3 h-3" /> Time Travel
+            </button>
+            <button
+              onClick={() => setViewMode('live')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'live' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Radio className="w-3 h-3" /> Live
             </button>
           </div>
 
@@ -318,6 +469,10 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
             </div>
           )}
 
+          {viewMode === 'live' && (
+            <LiveLogStream executionId={exec.id} status={exec.status} />
+          )}
+
           {viewMode === 'steps' && (
           <>
           <div className="flex items-center gap-2 mb-4">
@@ -415,8 +570,6 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
     </div>
   );
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function Executions() {
   const { toast } = useToast();
