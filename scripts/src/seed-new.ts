@@ -1,8 +1,8 @@
 import { db } from "@workspace/db";
-import { integrationsTable, evalRunsTable } from "@workspace/db/schema";
+import { integrationsTable } from "@workspace/db/schema";
 
 async function seedNew() {
-  console.log("Seeding integrations and evaluations...");
+  console.log("Seeding integrations...");
 
   const integrations = [
     { name: "OpenAI", description: "GPT-4o, GPT-4, DALL-E, Whisper, and embeddings", category: "llm", icon: "🤖", connected: true, popular: true, nodes: 8 },
@@ -71,17 +71,7 @@ async function seedNew() {
 
   await db.insert(integrationsTable).values(integrations);
 
-  const evalRuns = [
-    { name: "Customer Support Quality", agentName: "Support Agent", status: "passed", score: 94.2, totalTests: 50, passedTests: 47, failedTests: 3, avgLatency: 1.2, tokenUsage: 45000, cost: 0.68, metrics: { accuracy: 95, relevance: 93, coherence: 96, safety: 98 } },
-    { name: "Code Review Accuracy", agentName: "Code Reviewer", status: "warning", score: 78.5, totalTests: 40, passedTests: 31, failedTests: 9, avgLatency: 3.4, tokenUsage: 82000, cost: 1.23, metrics: { accuracy: 76, relevance: 82, coherence: 88, safety: 95 } },
-    { name: "Content Generation Quality", agentName: "Content Writer", status: "passed", score: 91.0, totalTests: 30, passedTests: 27, failedTests: 3, avgLatency: 2.1, tokenUsage: 56000, cost: 0.84, metrics: { accuracy: 89, relevance: 92, coherence: 94, safety: 97 } },
-    { name: "Data Analysis Precision", agentName: "Data Analyst", status: "failed", score: 62.3, totalTests: 25, passedTests: 15, failedTests: 10, avgLatency: 4.8, tokenUsage: 120000, cost: 1.80, metrics: { accuracy: 58, relevance: 65, coherence: 72, safety: 99 } },
-    { name: "Prompt Iteration v3.2", agentName: "Support Agent", status: "passed", score: 96.1, totalTests: 50, passedTests: 48, failedTests: 2, avgLatency: 1.1, tokenUsage: 42000, cost: 0.63, metrics: { accuracy: 97, relevance: 95, coherence: 97, safety: 99 } },
-  ];
-
-  await db.insert(evalRunsTable).values(evalRuns);
-
-  console.log(`Seeded ${integrations.length} integrations and ${evalRuns.length} eval runs`);
+  console.log(`Seeded ${integrations.length} integrations`);
   process.exit(0);
 }
 
