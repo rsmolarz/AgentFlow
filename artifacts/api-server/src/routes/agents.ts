@@ -69,6 +69,28 @@ router.put("/agents/:agentId", async (req, res) => {
   }
 });
 
+router.post("/agents/:agentId/clone", async (req, res) => {
+  try {
+    const agentId = Number(req.params.agentId);
+    const [agent] = await db.select().from(agentsTable).where(eq(agentsTable.id, agentId));
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const { id, createdAt, updatedAt, executionCount, avgResponseTime, successRate, lastPingAt, healthStatus, healthMessage, healthLatency, ...cloneData } = agent;
+    const [cloned] = await db.insert(agentsTable).values({
+      ...cloneData,
+      name: `${agent.name} (Copy)`,
+      executionCount: 0,
+      avgResponseTime: 0,
+      successRate: 100,
+      healthStatus: "unknown",
+    }).returning();
+
+    res.status(201).json(cloned);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.post("/agents/:agentId/ping", async (req, res) => {
   try {
     const agentId = Number(req.params.agentId);

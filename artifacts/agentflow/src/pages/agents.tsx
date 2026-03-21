@@ -6,7 +6,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -267,6 +267,24 @@ function AgentCard({ agent }: { agent: any }) {
               <MessageSquare className="w-3 h-3 mr-1" /> Chat
             </Button>
           </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={async () => {
+              try {
+                const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/agents/${agent.id}/clone`, { method: "POST" });
+                if (!res.ok) throw new Error("Clone failed");
+                queryClient.invalidateQueries({ queryKey: ["/api/agents"] });
+                toast({ title: `Duplicated "${agent.name}"`, description: "A copy has been created with reset stats." });
+              } catch {
+                toast({ title: "Failed to duplicate agent", variant: "destructive" });
+              }
+            }}
+            title="Duplicate agent"
+          >
+            <Copy className="w-3 h-3" />
+          </Button>
           <Button 
             variant="ghost" 
             size="icon" 
