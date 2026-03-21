@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useListWorkflows, useCreateWorkflow, useDeleteWorkflow } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Workflow as WorkflowIcon, Plus, Search, Trash2, Edit2, Play, GitMerge, Clock } from "lucide-react";
+import { Workflow as WorkflowIcon, Plus, Search, Trash2, Edit2, Play, GitMerge, Clock, Download, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,10 +11,40 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function Workflows() {
   const [search, setSearch] = useState("");
   const { data: workflows, isLoading } = useListWorkflows({ search: search || undefined });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.name || !data.definition) throw new Error("Invalid workflow JSON: must have name and definition");
+      const res = await fetch(`${API_BASE}/api/workflows`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name + " (imported)",
+          description: data.description || "",
+          definition: data.definition,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to import");
+      queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
+      toast({ title: "Workflow imported successfully!" });
+    } catch (err: any) {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    }
+    if (importInputRef.current) importInputRef.current.value = "";
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -34,6 +64,21 @@ export default function Workflows() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <Button
+            variant="outline"
+            className="border-border"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 border-0">
@@ -87,6 +132,24 @@ function WorkflowListItem({ workflow }: { workflow: any }) {
     }
   });
 
+  const handleExport = () => {
+    const exportData = {
+      name: workflow.name,
+      description: workflow.description || "",
+      definition: workflow.definition || { nodes: [], edges: [] },
+      exportedAt: new Date().toISOString(),
+      version: "1.0",
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${workflow.name.replace(/[^a-zA-Z0-9]/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Workflow exported", description: `${workflow.name}.json downloaded` });
+  };
+
   const nodeCount = workflow.definition?.nodes?.length || 0;
 
   return (
@@ -118,6 +181,15 @@ function WorkflowListItem({ workflow }: { workflow: any }) {
       </div>
       
       <div className="flex items-center gap-2 w-full sm:w-auto">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleExport}
+          title="Export as JSON"
+        >
+          <Download className="w-4 h-4" />
+        </Button>
         <Link href={`/workflows/${workflow.id}/edit`}>
           <Button variant="outline" className="flex-1 sm:flex-none border-primary/20 hover:bg-primary/10 hover:text-primary text-primary transition-colors">
             <Edit2 className="w-4 h-4 mr-2" />
