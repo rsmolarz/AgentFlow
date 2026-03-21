@@ -22,6 +22,10 @@ export const agentsTable = pgTable("agents", {
   executionCount: integer("execution_count").default(0),
   avgResponseTime: real("avg_response_time").default(0),
   successRate: real("success_rate").default(100),
+  lastPingAt: timestamp("last_ping_at"),
+  healthStatus: text("health_status").default("unknown"),
+  healthMessage: text("health_message").default(""),
+  healthLatency: real("health_latency"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

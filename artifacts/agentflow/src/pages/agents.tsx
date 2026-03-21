@@ -6,7 +6,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -100,6 +100,87 @@ const iconMap: Record<string, any> = {
   bot: Bot,
 };
 
+function HealthIndicator({ agent }: { agent: any }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const BASE = import.meta.env.BASE_URL;
+  const [pinging, setPinging] = useState(false);
+  const [health, setHealth] = useState({
+    status: agent.healthStatus || "unknown",
+    message: agent.healthMessage || "",
+    latency: agent.healthLatency,
+    lastPingAt: agent.lastPingAt,
+  });
+
+  const ping = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setPinging(true);
+    try {
+      const r = await fetch(`${BASE}api/agents/${agent.id}/ping`, { method: "POST" });
+      if (!r.ok) throw new Error("Ping request failed");
+      const data = await r.json();
+      setHealth({
+        status: data.status,
+        message: data.message,
+        latency: data.latency,
+        lastPingAt: data.lastPingAt,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/agents"] });
+      toast({ title: `Health: ${data.status}`, description: data.message });
+    } catch {
+      toast({ title: "Ping failed", variant: "destructive" });
+    } finally {
+      setPinging(false);
+    }
+  };
+
+  const statusConfig: Record<string, { color: string; bg: string; glow: string; icon: any; label: string }> = {
+    healthy: { color: "text-emerald-400", bg: "bg-emerald-500", glow: "shadow-[0_0_8px_rgba(16,185,129,0.5)]", icon: Wifi, label: "Healthy" },
+    degraded: { color: "text-amber-400", bg: "bg-amber-500", glow: "shadow-[0_0_8px_rgba(245,158,11,0.5)]", icon: AlertTriangle, label: "Degraded" },
+    unhealthy: { color: "text-red-400", bg: "bg-red-500", glow: "shadow-[0_0_8px_rgba(239,68,68,0.5)]", icon: WifiOff, label: "Unhealthy" },
+    unknown: { color: "text-muted-foreground", bg: "bg-muted-foreground", glow: "", icon: Heart, label: "Not checked" },
+  };
+
+  const cfg = statusConfig[health.status] || statusConfig.unknown;
+  const StatusIcon = cfg.icon;
+  const timeSince = health.lastPingAt ? (() => {
+    const diff = Date.now() - new Date(health.lastPingAt).getTime();
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  })() : null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={ping}
+        disabled={pinging}
+        className={`flex items-center gap-1.5 text-xs ${cfg.color} hover:opacity-80 transition-opacity`}
+        title={health.message || "Click to ping agent"}
+      >
+        {pinging ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <div className={`w-2 h-2 rounded-full ${cfg.bg} ${cfg.glow}`} />
+        )}
+        <span>{pinging ? "Pinging..." : cfg.label}</span>
+      </button>
+      {health.latency != null && (
+        <span className="text-[10px] text-muted-foreground" title={`Response latency: ${health.latency.toFixed(2)}s`}>
+          {health.latency.toFixed(1)}s
+        </span>
+      )}
+      {timeSince && (
+        <span className="text-[10px] text-muted-foreground" title={`Last checked: ${new Date(health.lastPingAt).toLocaleString()}`}>
+          {timeSince}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function AgentCard({ agent }: { agent: any }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -139,12 +220,7 @@ function AgentCard({ agent }: { agent: any }) {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 text-xs ${agent.status === 'active' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-            <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-muted-foreground'}`} />
-            <span className="capitalize">{agent.status || 'active'}</span>
-          </div>
-        </div>
+        <HealthIndicator agent={agent} />
       </div>
 
       <div className="flex-1">
