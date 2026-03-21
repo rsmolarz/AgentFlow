@@ -6,7 +6,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle, Copy } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle, Copy, Tag, X } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,10 +18,27 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function Agents() {
   const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { data: agents, isLoading } = useListAgents({ search: search || undefined });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const allTags = new Set<string>();
+  if (agents) {
+    for (const a of agents) {
+      if (Array.isArray((a as any).tags)) {
+        for (const t of (a as any).tags) allTags.add(t);
+      }
+    }
+  }
+  const sortedTags = [...allTags].sort();
+
+  const filteredAgents = tagFilter
+    ? agents?.filter((a: any) => Array.isArray(a.tags) && a.tags.includes(tagFilter))
+    : agents;
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -59,6 +76,31 @@ export default function Agents() {
         </div>
       </div>
 
+      {sortedTags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Tag className="w-4 h-4 text-muted-foreground" />
+          <button
+            onClick={() => setTagFilter(null)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              !tagFilter ? 'bg-primary text-white border-primary' : 'bg-secondary/50 text-muted-foreground border-white/10 hover:border-white/20'
+            }`}
+          >
+            All
+          </button>
+          {sortedTags.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                tagFilter === tag ? 'bg-primary text-white border-primary' : 'bg-secondary/50 text-muted-foreground border-white/10 hover:border-white/20'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 flex gap-3 items-start">
         <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-muted-foreground">
@@ -70,18 +112,22 @@ export default function Agents() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1,2,3].map(i => <div key={i} className="h-64 bg-secondary/50 rounded-2xl animate-pulse" />)}
         </div>
-      ) : agents?.length === 0 ? (
+      ) : filteredAgents?.length === 0 ? (
         <div className="text-center py-24 glass-card rounded-3xl">
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Bot className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-semibold mb-2 text-foreground">No agents found</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto mb-6">Create your first AI agent to start building automated workflows. An agent is a specialized AI worker that performs specific tasks.</p>
-          <Button onClick={() => setIsCreateOpen(true)} className="bg-primary text-white">Create Your First Agent</Button>
+          <h3 className="text-xl font-semibold mb-2 text-foreground">{tagFilter ? "No agents with this tag" : "No agents found"}</h3>
+          <p className="text-muted-foreground max-w-sm mx-auto mb-6">{tagFilter ? `No agents are tagged with "${tagFilter}".` : "Create your first AI agent to start building automated workflows."}</p>
+          {tagFilter ? (
+            <Button onClick={() => setTagFilter(null)} variant="outline">Clear Filter</Button>
+          ) : (
+            <Button onClick={() => setIsCreateOpen(true)} className="bg-primary text-white">Create Your First Agent</Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {agents?.map(agent => (
+          {filteredAgents?.map(agent => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
         </div>
@@ -247,6 +293,8 @@ function AgentCard({ agent }: { agent: any }) {
         )}
       </div>
 
+      <AgentTagsEditor agentId={agent.id} tags={(agent as any).tags || []} />
+
       <div className="pt-4 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex gap-4">
           <span className="flex items-center gap-1" title="Total executions this agent has been part of">
@@ -296,6 +344,84 @@ function AgentCard({ agent }: { agent: any }) {
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentTagsEditor({ agentId, tags: initialTags }: { agentId: number; tags: string[] }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [tags, setTags] = useState<string[]>(initialTags);
+  const [editing, setEditing] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
+  const saveTags = async (updatedTags: string[]) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/agents/${agentId}/tags`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: updatedTags }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setTags(updatedTags);
+      queryClient.invalidateQueries({ queryKey: ["/api/agents"] });
+    } catch {
+      toast({ title: "Failed to update tags", variant: "destructive" });
+    }
+  };
+
+  const addTag = () => {
+    const tag = newTag.trim().toLowerCase();
+    if (!tag || tags.includes(tag)) { setNewTag(""); return; }
+    const updated = [...tags, tag];
+    saveTags(updated);
+    setNewTag("");
+  };
+
+  const removeTag = (tag: string) => {
+    saveTags(tags.filter(t => t !== tag));
+  };
+
+  return (
+    <div className="mb-2">
+      <div className="flex items-center gap-1 flex-wrap">
+        {tags.map(tag => (
+          <span key={tag} className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full">
+            {tag}
+            {editing && (
+              <button onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="hover:text-destructive ml-0.5">
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </span>
+        ))}
+        {editing ? (
+          <form
+            className="inline-flex"
+            onSubmit={(e) => { e.preventDefault(); addTag(); }}
+          >
+            <input
+              type="text"
+              value={newTag}
+              onChange={e => setNewTag(e.target.value)}
+              placeholder="add tag..."
+              className="text-[10px] bg-transparent border-b border-white/20 outline-none w-16 px-0.5 py-0.5 text-foreground"
+              autoFocus
+              onBlur={() => { if (!newTag) setEditing(false); }}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setNewTag(""); setEditing(false); } }}
+            />
+          </form>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Add tag"
+          >
+            <Tag className="w-2.5 h-2.5" />
+            <Plus className="w-2.5 h-2.5" />
+          </button>
+        )}
       </div>
     </div>
   );

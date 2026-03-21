@@ -191,6 +191,43 @@ router.get("/agents/:agentId/health", async (req, res) => {
   }
 });
 
+router.put("/agents/:agentId/tags", async (req, res) => {
+  try {
+    const agentId = Number(req.params.agentId);
+    const { tags } = req.body;
+    if (!Array.isArray(tags)) return res.status(400).json({ error: "Tags must be an array" });
+
+    const cleaned = tags.map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+    const unique = [...new Set(cleaned)];
+
+    const [agent] = await db
+      .update(agentsTable)
+      .set({ tags: unique, updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentId))
+      .returning();
+
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    res.json(agent);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get("/agents/tags/all", async (_req, res) => {
+  try {
+    const agents = await db.select({ tags: agentsTable.tags }).from(agentsTable);
+    const allTags = new Set<string>();
+    for (const a of agents) {
+      if (Array.isArray(a.tags)) {
+        for (const t of a.tags) allTags.add(t);
+      }
+    }
+    res.json([...allTags].sort());
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.delete("/agents/:agentId", async (req, res) => {
   try {
     const { agentId } = DeleteAgentParams.parse(req.params);
