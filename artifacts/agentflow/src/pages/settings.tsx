@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { 
   Settings as SettingsIcon, Key, Shield, Server, Globe, Brain, Save, Plus, Trash2, Copy,
   Eye, EyeOff, CheckCircle, AlertTriangle, RefreshCw, ExternalLink, Lock, Info, HelpCircle,
-  Webhook, Cpu, Layers, Users, Bell, Palette, Code2, Terminal
+  Webhook, Cpu, Layers, Users, Bell, Palette, Code2, Terminal, DollarSign, TrendingUp,
+  RotateCcw, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -640,32 +641,35 @@ export default function Settings() {
           )}
 
           {activeTab === "notifications" && (
-            <div className="rounded-xl border border-border bg-card/60 p-6 space-y-5">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Bell className="w-5 h-5 text-blue-400" />
-                Notification Preferences
-              </h2>
+            <div className="space-y-6">
+              <div className="rounded-xl border border-border bg-card/60 p-6 space-y-5">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-blue-400" />
+                  Notification Preferences
+                </h2>
 
-              {[
-                { label: "Execution Failures", desc: "Get notified when a workflow execution fails", defaultOn: true },
-                { label: "Budget Alerts", desc: "Alert when token usage approaches monthly budget", defaultOn: true },
-                { label: "Evaluation Regressions", desc: "Notify when agent quality scores drop below threshold", defaultOn: true },
-                { label: "New Integrations", desc: "Get notified about new integration availability", defaultOn: false },
-                { label: "Security Alerts", desc: "Critical security events and suspicious activity", defaultOn: true },
-                { label: "Scheduled Reports", desc: "Weekly summary of platform usage and performance", defaultOn: false },
-              ].map(item => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
-                  <div>
-                    <Label>{item.label}</Label>
-                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                {[
+                  { label: "Execution Failures", desc: "Get notified when a workflow execution fails", defaultOn: true },
+                  { label: "Evaluation Regressions", desc: "Notify when agent quality scores drop below threshold", defaultOn: true },
+                  { label: "New Integrations", desc: "Get notified about new integration availability", defaultOn: false },
+                  { label: "Security Alerts", desc: "Critical security events and suspicious activity", defaultOn: true },
+                  { label: "Scheduled Reports", desc: "Weekly summary of platform usage and performance", defaultOn: false },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
+                    <div>
+                      <Label>{item.label}</Label>
+                      <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                    </div>
+                    <Switch defaultChecked={item.defaultOn} />
                   </div>
-                  <Switch defaultChecked={item.defaultOn} />
-                </div>
-              ))}
+                ))}
 
-              <Button onClick={handleSave} className="bg-primary text-white">
-                <Save className="w-4 h-4 mr-2" /> Save Notification Settings
-              </Button>
+                <Button onClick={handleSave} className="bg-primary text-white">
+                  <Save className="w-4 h-4 mr-2" /> Save Notification Settings
+                </Button>
+              </div>
+
+              <CostAlertsSection />
             </div>
           )}
 
@@ -750,6 +754,243 @@ export default function Settings() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+interface CostAlert {
+  id: number;
+  name: string;
+  budgetAmount: string;
+  currentSpend: string;
+  alertThreshold: number;
+  enabled: boolean;
+  alertType: string;
+  notifyEmail: boolean;
+  notifyInApp: boolean;
+  triggered: boolean;
+  triggeredAt: string | null;
+  resetDay: number;
+  createdAt: string;
+}
+
+function CostAlertsSection() {
+  const { toast } = useToast();
+  const [alerts, setAlerts] = useState<CostAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("Monthly Budget Alert");
+  const [budget, setBudget] = useState("500");
+  const [threshold, setThreshold] = useState("80");
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyInApp, setNotifyInApp] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchAlerts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/cost-alerts`);
+      const data = await res.json();
+      if (Array.isArray(data)) setAlerts(data);
+    } catch {} finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchAlerts(); }, []);
+
+  const createAlert = async () => {
+    if (!name.trim() || !budget) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/cost-alerts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          budgetAmount: budget,
+          alertThreshold: Number(threshold),
+          notifyEmail,
+          notifyInApp,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const alert = await res.json();
+      setAlerts(prev => [...prev, alert]);
+      setShowForm(false);
+      setName("Monthly Budget Alert");
+      setBudget("500");
+      setThreshold("80");
+      toast({ title: "Cost alert created!", description: `You'll be notified at ${threshold}% of $${budget}` });
+    } catch {
+      toast({ title: "Error creating alert", variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  const toggleAlert = async (id: number, enabled: boolean) => {
+    await fetch(`${API_BASE}/api/cost-alerts/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, enabled } : a));
+    toast({ title: enabled ? "Alert enabled" : "Alert disabled" });
+  };
+
+  const resetAlert = async (id: number) => {
+    const res = await fetch(`${API_BASE}/api/cost-alerts/${id}/reset`, { method: "POST" });
+    const updated = await res.json();
+    setAlerts(prev => prev.map(a => a.id === id ? updated : a));
+    toast({ title: "Spend counter reset" });
+  };
+
+  const deleteAlert = async (id: number) => {
+    await fetch(`${API_BASE}/api/cost-alerts/${id}`, { method: "DELETE" });
+    setAlerts(prev => prev.filter(a => a.id !== id));
+    toast({ title: "Cost alert deleted" });
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-amber-400" />
+            Cost Alerts
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Set monthly budget alerts to get notified when spending approaches your limit.</p>
+        </div>
+        <Button size="sm" className="gap-1" onClick={() => setShowForm(!showForm)}>
+          <Plus className="w-3 h-3" /> New Alert
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="bg-card/80 border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-150">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Alert Name</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} className="bg-secondary/50 border-white/10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Monthly Budget ($)</Label>
+              <Input type="number" value={budget} onChange={e => setBudget(e.target.value)} className="bg-secondary/50 border-white/10" min="1" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Alert Threshold: {threshold}%</Label>
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={threshold}
+              onChange={e => setThreshold(e.target.value)}
+              className="w-full accent-amber-400"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>10%</span>
+              <span>Trigger alert at {threshold}% of ${budget} = ${(Number(budget) * Number(threshold) / 100).toFixed(2)}</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={notifyInApp} onCheckedChange={setNotifyInApp} />
+              <span>In-App Notification</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={notifyEmail} onCheckedChange={setNotifyEmail} />
+              <span>Email Notification</span>
+            </label>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={createAlert} disabled={saving || !name.trim() || !budget} className="gap-1">
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Save Alert
+            </Button>
+            <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : alerts.length === 0 && !showForm ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <DollarSign className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No cost alerts configured.</p>
+          <p className="text-xs">Create an alert to monitor your spending.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map(alert => {
+            const pct = Number(alert.budgetAmount) > 0 ? (Number(alert.currentSpend) / Number(alert.budgetAmount)) * 100 : 0;
+            const barColor = pct >= 90 ? 'bg-red-500' : pct >= Number(alert.alertThreshold) ? 'bg-amber-500' : 'bg-emerald-500';
+            const statusColor = pct >= 90 ? 'text-red-400' : pct >= Number(alert.alertThreshold) ? 'text-amber-400' : 'text-emerald-400';
+
+            return (
+              <div key={alert.id} className={`rounded-xl border p-4 ${alert.enabled ? 'border-white/10 bg-card/60' : 'border-white/5 bg-card/30 opacity-60'}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <Switch checked={alert.enabled} onCheckedChange={(v) => toggleAlert(alert.id, v)} />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm">{alert.name}</h3>
+                      {alert.triggered && (
+                        <span className="flex items-center gap-1 text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-medium">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Triggered
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Alert at {alert.alertThreshold}% • {alert.notifyInApp ? "In-app" : ""}{alert.notifyInApp && alert.notifyEmail ? " + " : ""}{alert.notifyEmail ? "Email" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => resetAlert(alert.id)} title="Reset spend counter">
+                      <RotateCcw className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteAlert(alert.id)} title="Delete alert">
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={statusColor}>
+                      ${Number(alert.currentSpend).toFixed(2)} spent
+                    </span>
+                    <span className="text-muted-foreground">
+                      ${Number(alert.budgetAmount).toFixed(2)} budget
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary/50 rounded-full h-2.5 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> {pct.toFixed(1)}% used
+                    </span>
+                    <span>${(Number(alert.budgetAmount) - Number(alert.currentSpend)).toFixed(2)} remaining</span>
+                  </div>
+                </div>
+
+                {alert.triggered && alert.triggeredAt && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400 bg-amber-500/10 rounded-lg px-2 py-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Alert triggered on {new Date(alert.triggeredAt).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

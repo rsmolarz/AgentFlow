@@ -15,6 +15,7 @@ import abTestsRouter from "./ab-tests";
 import searchRouter from "./search";
 import schedulesRouter from "./schedules";
 import webhooksRouter from "./webhooks";
+import costAlertsRouter from "./cost-alerts";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(integrationsRouter);
 router.use(settingsRouter);
 router.use(schedulesRouter);
 router.use(webhooksRouter);
+router.use(costAlertsRouter);
 
 export default router;

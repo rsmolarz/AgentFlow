@@ -11,3 +11,4 @@ export * from "./workflow-versions";
 export * from "./bulk-executions";
 export * from "./workflow-schedules";
 export * from "./webhooks";
+export * from "./cost-alerts";
