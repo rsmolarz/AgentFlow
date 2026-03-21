@@ -10,11 +10,13 @@ import featureRequestsRouter from "./feature-requests";
 import evaluationsRouter from "./evaluations";
 import integrationsRouter from "./integrations";
 import settingsRouter from "./settings";
+import promptOptimizerRouter from "./prompt-optimizer";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(agentsRouter);
+router.use(promptOptimizerRouter);
 router.use(workflowsRouter);
 router.use(executionsRouter);
 router.use(templatesRouter);

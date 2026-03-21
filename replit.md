@@ -38,7 +38,7 @@ The frontend, `artifacts/agentflow`, uses React, Vite, Tailwind CSS v4, and `sha
 - **Technology Stack**: React, Vite, Tailwind CSS v4, shadcn/ui, @xyflow/react (React Flow for canvas), recharts, wouter, framer-motion.
 - **Pages**:
     - **Dashboard**: Analytics overview, onboarding, stat cards, execution trends, cost breakdown.
-    - **Agents**: Grid view, creation form with advanced config (roles, memory, tools, guardrails, handoffs), chat playground (`/agents/:id/chat`).
+    - **Agents**: Grid view, creation form with advanced config (roles, memory, tools, guardrails, handoffs), chat playground (`/agents/:id/chat`), **Prompt Optimizer** (AI-powered system prompt improvement via "Optimize with AI" button in create form).
     - **AI Builder**: Natural language workflow creation, generates workflows from text descriptions.
     - **Workflows**: List view, comprehensive Workflow Editor (`/workflows/:id/edit`) with drag-and-drop nodes, slide-out `NodeConfigPanel` for type-specific settings, and contextual help.
     - **Executions**: Table view, detailed step-by-step logs with input/output/errors, token usage.
@@ -53,6 +53,7 @@ The frontend, `artifacts/agentflow`, uses React, Vite, Tailwind CSS v4, and `sha
 ### Backend (`artifacts/api-server`)
 - **Technology Stack**: Node.js 24, Express 5.
 - **API Design**: All routes are mounted under `/api` and provide RESTful access for CRUD operations and specific actions (e.g., run workflow, vote on feature request).
+- **AI Integration**: OpenAI via Replit AI Integrations proxy (`@workspace/integrations-openai-ai-server`). Used for prompt optimization (`POST /api/agents/optimize-prompt`). Env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`.
 - **Validation**: Uses Zod schemas generated from the OpenAPI spec (`@workspace/api-zod`) for robust request and response validation.
 
 ### Data Layer (`lib/db`)

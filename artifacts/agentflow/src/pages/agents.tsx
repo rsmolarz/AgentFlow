@@ -6,7 +6,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -237,6 +237,59 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
   const [guardrailsEnabled, setGuardrailsEnabled] = useState(true);
   const [selectedTools, setSelectedTools] = useState<string[]>(["web_search"]);
   const [handoffEnabled, setHandoffEnabled] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizedPrompt, setOptimizedPrompt] = useState<string | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
+
+  const handleOptimizePrompt = async () => {
+    if (!formData.role.trim()) {
+      toast({ title: "Please write a prompt first", description: "Enter a system prompt to optimize.", variant: "destructive" });
+      return;
+    }
+    setIsOptimizing(true);
+    setOptimizedPrompt(null);
+    setShowDiff(false);
+    try {
+      const resp = await fetch(`${import.meta.env.BASE_URL}api/agents/optimize-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPrompt: formData.role,
+          agentName: formData.name || undefined,
+          agentGoal: formData.goal || undefined,
+          tools: selectedTools,
+          provider: formData.provider,
+          model: formData.model,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || "Failed to optimize");
+      }
+      const data = await resp.json();
+      setOptimizedPrompt(data.optimizedPrompt);
+      setShowDiff(true);
+      toast({ title: "Prompt optimized!", description: `Used ${data.tokensUsed} tokens.` });
+    } catch (err: any) {
+      toast({ title: "Optimization failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const acceptOptimizedPrompt = () => {
+    if (optimizedPrompt) {
+      setFormData({ ...formData, role: optimizedPrompt });
+      setOptimizedPrompt(null);
+      setShowDiff(false);
+      toast({ title: "Optimized prompt applied!" });
+    }
+  };
+
+  const dismissOptimizedPrompt = () => {
+    setOptimizedPrompt(null);
+    setShowDiff(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,11 +378,27 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="flex items-center gap-1.5">
-          Role / System Prompt
-          <span className="text-red-400">*</span>
-          <span className="text-blue-400 cursor-help" title="This tells the AI what kind of expert it should be. Be specific about its expertise and how it should respond."><HelpCircle className="w-3 h-3" /></span>
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="flex items-center gap-1.5">
+            Role / System Prompt
+            <span className="text-red-400">*</span>
+            <span className="text-blue-400 cursor-help" title="This tells the AI what kind of expert it should be. Be specific about its expertise and how it should respond."><HelpCircle className="w-3 h-3" /></span>
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleOptimizePrompt}
+            disabled={isOptimizing || !formData.role.trim()}
+            className="h-7 text-xs gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+          >
+            {isOptimizing ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Optimizing...</>
+            ) : (
+              <><Sparkles className="w-3 h-3" /> Optimize with AI</>
+            )}
+          </Button>
+        </div>
         <Textarea 
           required
           rows={3}
@@ -339,6 +408,39 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
           className="bg-secondary/50 border-white/10 resize-none"
         />
         <p className="text-[10px] text-muted-foreground">This is the most important field. Tell the AI who it is, what it's an expert in, and how it should behave. The more specific you are, the better the results.</p>
+        
+        {showDiff && optimizedPrompt && (
+          <div className="mt-3 rounded-xl border border-purple-500/20 bg-purple-500/5 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-purple-500/10 flex items-center justify-between bg-purple-500/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">AI-Optimized Prompt</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={acceptOptimizedPrompt}
+                  className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                >
+                  <Check className="w-3 h-3" /> Accept
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={dismissOptimizedPrompt}
+                  className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{optimizedPrompt}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
