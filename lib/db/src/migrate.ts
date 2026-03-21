@@ -168,12 +168,16 @@ export async function ensureTables() {
       ALTER TABLE agents ADD COLUMN IF NOT EXISTS safety_filter BOOLEAN DEFAULT false;
     `);
 
+    await client.query("UPDATE integrations SET connected = false, api_key = NULL WHERE api_key IS NULL AND connected = true");
+
+    await client.query("DELETE FROM eval_runs WHERE agent_id IS NULL AND name IN ('Customer Support Quality','Code Review Accuracy','Content Generation Quality','Data Analysis Precision','Prompt Iteration v3.2')");
+
     const { rows } = await client.query("SELECT COUNT(*) as cnt FROM integrations");
     if (Number(rows[0].cnt) === 0) {
       const integrations = [
-        ["OpenAI","GPT-4o, GPT-4, DALL-E, Whisper, and embeddings","llm","🤖",true,true,8],
-        ["Anthropic","Claude 3.5 Sonnet, Claude 3 Opus, and Haiku models","llm","🧠",true,true,5],
-        ["Google AI","Gemini Pro, Gemini Flash, PaLM, and embeddings","llm","✨",true,false,6],
+        ["OpenAI","GPT-4o, GPT-4, DALL-E, Whisper, and embeddings","llm","🤖",false,true,8],
+        ["Anthropic","Claude 3.5 Sonnet, Claude 3 Opus, and Haiku models","llm","🧠",false,true,5],
+        ["Google AI","Gemini Pro, Gemini Flash, PaLM, and embeddings","llm","✨",false,false,6],
         ["Mistral AI","Mistral Large, Medium, and Codestral models","llm","🌪️",false,false,4],
         ["Cohere","Command R+, embeddings, and reranking models","llm","💎",false,false,4],
         ["Hugging Face","Access 100k+ open-source models and inference API","llm","🤗",false,true,3],
@@ -181,22 +185,22 @@ export async function ensureTables() {
         ["Azure OpenAI","Enterprise-grade OpenAI models on Azure","llm","☁️",false,false,5],
         ["AWS Bedrock","Claude, Titan, and Llama on AWS infrastructure","llm","🏔️",false,false,4],
         ["Groq","Ultra-fast inference for Llama and Mixtral","llm","⚡",false,false,2],
-        ["Slack","Send messages, manage channels, and respond to events","communication","💬",true,true,12],
+        ["Slack","Send messages, manage channels, and respond to events","communication","💬",false,true,12],
         ["Discord","Bot messages, channel management, and reactions","communication","🎮",false,false,8],
         ["Microsoft Teams","Messages, channels, meetings, and adaptive cards","communication","👥",false,false,7],
         ["Telegram","Bot messages, groups, inline queries, and callbacks","communication","📱",false,false,6],
-        ["Gmail","Read, send, and manage emails with labels and filters","communication","✉️",true,true,10],
-        ["PostgreSQL","Query, insert, update, and manage relational data","database","🐘",true,true,6],
+        ["Gmail","Read, send, and manage emails with labels and filters","communication","✉️",false,true,10],
+        ["PostgreSQL","Query, insert, update, and manage relational data","database","🐘",false,true,6],
         ["MongoDB","Document operations — find, insert, aggregate, and update","database","🍃",false,false,6],
         ["Redis","Key-value caching, pub/sub, and data structures","database","🔴",false,false,5],
         ["Supabase","Postgres database, auth, storage, and edge functions","database","⚡",false,true,8],
         ["Firebase","Firestore, Realtime DB, auth, and cloud functions","database","🔥",false,false,7],
         ["Airtable","Spreadsheet-database hybrid with rich field types","database","📊",false,true,6],
         ["Notion","Pages, databases, blocks, and workspace management","productivity","📓",false,true,10],
-        ["Google Sheets","Read, write, and manage spreadsheet data","productivity","📗",true,true,8],
+        ["Google Sheets","Read, write, and manage spreadsheet data","productivity","📗",false,true,8],
         ["Jira","Issues, sprints, boards, and project tracking","productivity","🎯",false,false,8],
         ["Linear","Issues, projects, and engineering workflows","productivity","📐",false,false,7],
-        ["GitHub","Repos, issues, PRs, actions, and webhooks","developer","🐙",true,true,15],
+        ["GitHub","Repos, issues, PRs, actions, and webhooks","developer","🐙",false,true,15],
         ["GitLab","Repositories, CI/CD, issues, and merge requests","developer","🦊",false,false,10],
         ["Vercel","Deployments, domains, and serverless functions","developer","▲",false,false,5],
         ["Salesforce","Leads, contacts, opportunities, and reports","crm","☁️",false,true,12],
@@ -204,7 +208,7 @@ export async function ensureTables() {
         ["AWS S3","Object storage — upload, download, and manage buckets","storage","📦",false,true,6],
         ["Google Drive","Files, folders, sharing, and permissions","storage","📁",false,true,7],
         ["Stripe","Payments, subscriptions, invoices, and customers","payment","💳",false,true,10],
-        ["Pinecone","Vector database for high-performance similarity search","vector","🌲",true,true,4],
+        ["Pinecone","Vector database for high-performance similarity search","vector","🌲",false,true,4],
         ["Weaviate","Open-source vector search engine with hybrid search","vector","🔮",false,false,4],
         ["ChromaDB","Open-source embedding database for AI apps","vector","🎨",false,false,3],
         ["Stability AI","Stable Diffusion image generation and editing","media","🎨",false,false,3],
