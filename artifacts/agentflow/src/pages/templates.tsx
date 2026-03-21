@@ -4,6 +4,28 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl p-6 border border-white/5 bg-secondary/20 animate-pulse">
+      <div className="flex justify-between items-start mb-3">
+        <div className="h-5 w-16 bg-secondary/50 rounded" />
+      </div>
+      <div className="h-5 w-3/4 bg-secondary/50 rounded mb-2" />
+      <div className="space-y-1.5 mb-6">
+        <div className="h-3 w-full bg-secondary/50 rounded" />
+        <div className="h-3 w-2/3 bg-secondary/50 rounded" />
+      </div>
+      <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+        <div className="flex gap-1.5">
+          <div className="h-5 w-14 bg-secondary/50 rounded" />
+          <div className="h-5 w-14 bg-secondary/50 rounded" />
+        </div>
+        <div className="h-8 w-16 bg-secondary/50 rounded" />
+      </div>
+    </div>
+  );
+}
+
 export default function Templates() {
   const { data: templates, isLoading } = useListTemplates();
   
@@ -30,48 +52,73 @@ export default function Templates() {
         </div>
       </div>
 
-      {agentTemplates.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
-            <Bot className="w-5 h-5 text-blue-400" />
-            Agent Templates
-          </h2>
-          <p className="text-sm text-muted-foreground">Pre-configured AI agents ready to use. Each comes with a system prompt, model settings, and tool assignments.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {agentTemplates.map(t => (
-              <TemplateCard key={t.id} template={t} />
-            ))}
+      {isLoading ? (
+        <>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 bg-secondary/50 rounded animate-pulse" />
+              <div className="h-6 w-40 bg-secondary/50 rounded animate-pulse" />
+            </div>
+            <div className="h-4 w-80 bg-secondary/30 rounded animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
           </div>
-        </div>
-      )}
-
-      {workflowTemplates.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
-            <Workflow className="w-5 h-5 text-purple-400" />
-            Workflow Templates
-          </h2>
-          <p className="text-sm text-muted-foreground">Complete automated pipelines with multiple connected steps. Apply one and open it in the visual builder to customize.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workflowTemplates.map(t => (
-              <TemplateCard key={t.id} template={t} />
-            ))}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 bg-secondary/50 rounded animate-pulse" />
+              <div className="h-6 w-48 bg-secondary/50 rounded animate-pulse" />
+            </div>
+            <div className="h-4 w-96 bg-secondary/30 rounded animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
           </div>
-        </div>
-      )}
+        </>
+      ) : (
+        <>
+          {agentTemplates.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+                <Bot className="w-5 h-5 text-blue-400" />
+                Agent Templates
+              </h2>
+              <p className="text-sm text-muted-foreground">Pre-configured AI agents ready to use. Each comes with a system prompt, model settings, and tool assignments.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {agentTemplates.map(t => (
+                  <TemplateCard key={t.id} template={t} />
+                ))}
+              </div>
+            </div>
+          )}
 
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1,2,3].map(i => <div key={i} className="h-48 bg-secondary/50 rounded-2xl animate-pulse" />)}
-        </div>
-      )}
+          {workflowTemplates.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+                <Workflow className="w-5 h-5 text-purple-400" />
+                Workflow Templates
+              </h2>
+              <p className="text-sm text-muted-foreground">Complete automated pipelines with multiple connected steps. Apply one and open it in the visual builder to customize.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {workflowTemplates.map(t => (
+                  <TemplateCard key={t.id} template={t} />
+                ))}
+              </div>
+            </div>
+          )}
 
-      {!isLoading && (!templates || templates.length === 0) && (
-        <div className="text-center py-16 glass-card rounded-3xl">
-          <Sparkles className="w-10 h-10 text-primary mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No templates available</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto">Templates will appear here as they are added to the platform.</p>
-        </div>
+          {(!templates || templates.length === 0) && (
+            <div className="text-center py-16 glass-card rounded-3xl">
+              <Sparkles className="w-10 h-10 text-primary mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No templates available</h3>
+              <p className="text-muted-foreground max-w-sm mx-auto">Templates will appear here as they are added to the platform.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

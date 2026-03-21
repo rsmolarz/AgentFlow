@@ -93,15 +93,28 @@ export default function Integrations() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-gradient">Integrations</h1>
-          <p className="text-muted-foreground mt-1">Connect your agents to {items.length}+ services, tools, and APIs. {connectedCount} connected.</p>
+          {isLoading ? (
+            <div className="h-4 w-72 bg-secondary/50 rounded animate-pulse mt-2" />
+          ) : (
+            <p className="text-muted-foreground mt-1">Connect your agents to {items.length}+ services, tools, and APIs. {connectedCount} connected.</p>
+          )}
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg font-medium">
-            {connectedCount} Connected
-          </div>
-          <div className="bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-lg font-medium">
-            {totalNodes}+ Nodes
-          </div>
+          {isLoading ? (
+            <>
+              <div className="h-8 w-28 bg-secondary/50 rounded-lg animate-pulse" />
+              <div className="h-8 w-28 bg-secondary/50 rounded-lg animate-pulse" />
+            </>
+          ) : (
+            <>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg font-medium">
+                {connectedCount} Connected
+              </div>
+              <div className="bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-lg font-medium">
+                {totalNodes}+ Nodes
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -115,33 +128,47 @@ export default function Integrations() {
         />
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setCategory(cat.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              category === cat.id
-                ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
-            }`}
-          >
-            <cat.icon className="w-3.5 h-3.5" />
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex gap-2 flex-wrap">
+          {[56, 110, 108, 80, 96, 112, 72, 84, 76, 100, 90, 60].map((w, i) => (
+            <div key={i} className="h-8 rounded-lg bg-secondary/50 animate-pulse" style={{ width: `${w}px` }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-2 flex-wrap">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCategory(cat.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                category === cat.id
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <cat.icon className="w-3.5 h-3.5" />
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => (
+          {[1,2,3,4,5,6,7,8,9].map(i => (
             <div key={i} className="rounded-xl border border-white/5 bg-secondary/20 p-4 animate-pulse">
               <div className="flex gap-3">
-                <div className="w-10 h-10 rounded-lg bg-secondary/50" />
+                <div className="w-10 h-10 rounded-lg bg-secondary/50 flex-shrink-0" />
                 <div className="flex-1">
-                  <div className="h-4 bg-secondary rounded w-24 mb-2" />
-                  <div className="h-3 bg-secondary rounded w-40" />
+                  <div className="h-4 bg-secondary/50 rounded w-24 mb-2" />
+                  <div className="h-3 bg-secondary/50 rounded w-full mb-1" />
+                  <div className="h-3 bg-secondary/50 rounded w-2/3" />
+                  <div className="flex gap-3 mt-2">
+                    <div className="h-3 bg-secondary/50 rounded w-14" />
+                    <div className="h-3 bg-secondary/50 rounded w-16" />
+                  </div>
                 </div>
+                <div className="h-8 w-16 bg-secondary/50 rounded flex-shrink-0" />
               </div>
             </div>
           ))}
