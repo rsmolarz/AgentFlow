@@ -154,6 +154,12 @@ const CustomNode = ({ data, type, isConnectable, selected }: any) => {
       </div>
       <div className="xyflow-custom-node-body text-xs text-muted-foreground">
         {data.description || nodeDescriptions[type]?.desc || `Execute ${type} task`}
+        {type !== 'trigger' && data.retryEnabled && (
+          <div className="mt-1.5 flex items-center gap-1 text-amber-400">
+            <RotateCcw className="w-3 h-3" />
+            <span className="text-[10px]">Retry ×{data.retryMaxAttempts || 3}</span>
+          </div>
+        )}
         {data.agentName && <div className="mt-2 text-primary font-medium">{data.agentName}</div>}
         {data.triggerType && (
           <div className="mt-2 flex items-center gap-1 text-emerald-400">
@@ -666,6 +672,140 @@ function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: {
           )}
         </div>
 
+        {type !== 'trigger' && (
+          <div className="border-t border-white/5 pt-4">
+            <button
+              onClick={() => update('_retryExpanded', !localData._retryExpanded)}
+              className="w-full flex items-center justify-between mb-3"
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+                <RotateCcw className="w-3 h-3" />
+                Auto-Retry Configuration
+              </p>
+              {localData.retryEnabled && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 mr-1">ON</span>
+              )}
+              {localData._retryExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+            </button>
+
+            {localData._retryExpanded && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+                  <div>
+                    <Label className="text-xs">Enable Auto-Retry</Label>
+                    <p className="text-[10px] text-muted-foreground">Automatically retry on failure</p>
+                  </div>
+                  <Switch checked={localData.retryEnabled || false} onCheckedChange={v => update('retryEnabled', v)} />
+                </div>
+
+                {localData.retryEnabled && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        Max Retries
+                        <span className="text-blue-400 cursor-help" title="Maximum number of retry attempts before marking this step as failed"><Info className="w-3 h-3" /></span>
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min={1}
+                          max={10}
+                          value={localData.retryMaxAttempts || 3}
+                          onChange={e => update('retryMaxAttempts', Number(e.target.value))}
+                          className="flex-1 accent-primary h-1.5"
+                        />
+                        <span className="text-sm font-mono w-6 text-center">{localData.retryMaxAttempts || 3}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        Backoff Strategy
+                        <span className="text-blue-400 cursor-help" title="How delay between retries increases: Fixed = same delay each time, Linear = delay grows evenly, Exponential = delay doubles each time"><Info className="w-3 h-3" /></span>
+                      </Label>
+                      <Select value={localData.retryBackoff || 'exponential'} onValueChange={v => update('retryBackoff', v)}>
+                        <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">Fixed (same delay each retry)</SelectItem>
+                          <SelectItem value="linear">Linear (delay increases evenly)</SelectItem>
+                          <SelectItem value="exponential">Exponential (delay doubles)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Initial Delay (seconds)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={300}
+                        value={localData.retryDelay || 5}
+                        onChange={e => update('retryDelay', Number(e.target.value))}
+                        className="bg-secondary/50 border-white/10 h-8 text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Retry On</Label>
+                      <Select value={localData.retryOn || 'any_error'} onValueChange={v => update('retryOn', v)}>
+                        <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any_error">Any error</SelectItem>
+                          <SelectItem value="timeout">Timeout only</SelectItem>
+                          <SelectItem value="rate_limit">Rate limit (429) only</SelectItem>
+                          <SelectItem value="server_error">Server errors (5xx) only</SelectItem>
+                          <SelectItem value="custom">Custom error codes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {localData.retryOn === 'custom' && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Error Codes (comma-separated)</Label>
+                        <Input
+                          value={localData.retryErrorCodes || ''}
+                          onChange={e => update('retryErrorCodes', e.target.value)}
+                          placeholder="429, 500, 502, 503"
+                          className="bg-secondary/50 border-white/10 h-8 text-sm font-mono"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-2.5 rounded-lg bg-secondary/30 border border-white/5">
+                      <p className="text-[10px] text-muted-foreground mb-1.5">Retry Preview</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from({ length: localData.retryMaxAttempts || 3 }, (_, i) => {
+                          const base = localData.retryDelay || 5;
+                          const strategy = localData.retryBackoff || 'exponential';
+                          const delay = strategy === 'fixed' ? base : strategy === 'linear' ? base * (i + 1) : base * Math.pow(2, i);
+                          return (
+                            <div key={i} className="flex items-center gap-1">
+                              {i > 0 && <span className="text-[9px] text-muted-foreground">&rarr;</span>}
+                              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono">
+                                {delay >= 60 ? `${Math.round(delay / 60)}m` : `${delay}s`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-muted-foreground mt-1.5">
+                        Total max wait: {(() => {
+                          const base = localData.retryDelay || 5;
+                          const strategy = localData.retryBackoff || 'exponential';
+                          const total = Array.from({ length: localData.retryMaxAttempts || 3 }, (_, i) =>
+                            strategy === 'fixed' ? base : strategy === 'linear' ? base * (i + 1) : base * Math.pow(2, i)
+                          ).reduce((a, b) => a + b, 0);
+                          return total >= 60 ? `${Math.round(total / 60)}m ${total % 60}s` : `${total}s`;
+                        })()}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="border-t border-white/5 pt-4 space-y-2">
           <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
             <div>
@@ -1050,9 +1190,13 @@ function EditorCanvas({ id }: { id: number }) {
   }, [setNodes, setEdges]);
 
   const handleSave = () => {
+    const cleanNodes = nodes.map(n => ({
+      ...n,
+      data: Object.fromEntries(Object.entries(n.data || {}).filter(([k]) => !k.startsWith('_')))
+    }));
     updateWorkflow({
       workflowId: id,
-      data: { definition: { nodes, edges } as any }
+      data: { definition: { nodes: cleanNodes, edges } as any }
     }, {
       onSuccess: () => {
         toast({ title: "Workflow saved!" });
