@@ -27,6 +27,7 @@ export const agentsTable = pgTable("agents", {
   healthMessage: text("health_message").default(""),
   healthLatency: real("health_latency"),
   tags: jsonb("tags").$type<string[]>().default([]),
+  safetyFilter: boolean("safety_filter").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

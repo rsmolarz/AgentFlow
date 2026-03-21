@@ -213,6 +213,25 @@ router.put("/agents/:agentId/tags", async (req, res) => {
   }
 });
 
+router.put("/agents/:agentId/safety-filter", async (req, res) => {
+  try {
+    const agentId = Number(req.params.agentId);
+    const { enabled } = req.body;
+    if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled must be a boolean" });
+
+    const [agent] = await db
+      .update(agentsTable)
+      .set({ safetyFilter: enabled, updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentId))
+      .returning();
+
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    res.json(agent);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get("/agents/tags/all", async (_req, res) => {
   try {
     const agents = await db.select({ tags: agentsTable.tags }).from(agentsTable);

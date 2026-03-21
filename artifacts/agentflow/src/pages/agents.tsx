@@ -467,6 +467,7 @@ function AgentCard({ agent }: { agent: any }) {
       </div>
 
       <AgentTagsEditor agentId={agent.id} tags={(agent as any).tags || []} />
+      <SafetyFilterToggle agentId={agent.id} enabled={!!agent.safetyFilter} />
 
       <div className="pt-4 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex gap-4">
@@ -596,6 +597,47 @@ function AgentTagsEditor({ agentId, tags: initialTags }: { agentId: number; tags
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function SafetyFilterToggle({ agentId, enabled: initialEnabled }: { agentId: number; enabled: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [saving, setSaving] = useState(false);
+
+  const toggle = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/agents/${agentId}/safety-filter`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !enabled }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setEnabled(!enabled);
+      queryClient.invalidateQueries({ queryKey: ["/api/agents"] });
+      toast({ title: `Safety filter ${!enabled ? "enabled" : "disabled"}` });
+    } catch {
+      toast({ title: "Failed to update safety filter", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex items-center justify-between py-2 mb-1">
+      <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+        <Shield className="w-3 h-3" /> AI Safety Filter
+      </span>
+      <button
+        onClick={toggle}
+        disabled={saving}
+        className={`relative w-8 h-[18px] rounded-full transition-colors ${enabled ? "bg-emerald-500" : "bg-secondary"}`}
+        title={enabled ? "Safety filter is ON — outputs are moderated" : "Safety filter is OFF"}
+      >
+        <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${enabled ? "left-[16px]" : "left-[2px]"}`} />
+      </button>
     </div>
   );
 }
