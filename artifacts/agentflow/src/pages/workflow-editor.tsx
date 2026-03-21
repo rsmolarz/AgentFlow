@@ -25,7 +25,8 @@ import {
   Sparkles, ArrowRightLeft, X, HelpCircle, Settings2, Clock, Webhook,
   RotateCcw, GitBranch, AlertTriangle, CheckCircle2, Trash2, Copy,
   Info, ChevronDown, ChevronRight, Timer, RefreshCw, MessageSquare,
-  Layers, Globe, Database, BookOpen, History, RotateCw, Loader2
+  Layers, Globe, Database, BookOpen, History, RotateCw, Loader2,
+  FileJson, Eye
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,11 @@ const nodeDescriptions: Record<string, { title: string; desc: string; help: stri
     title: "Knowledge Query",
     desc: "Search your knowledge bases using RAG",
     help: "The Knowledge Query node performs a semantic search against your configured knowledge bases. It embeds the query, retrieves the most relevant document chunks, and passes them as context to downstream nodes. Essential for building RAG (Retrieval-Augmented Generation) pipelines."
+  },
+  output_formatter: {
+    title: "Output Formatter",
+    desc: "Format data as JSON, CSV, or Markdown",
+    help: "The Output Formatter transforms incoming data into a specific format. Choose JSON for structured API responses, CSV for spreadsheet-compatible tabular data, or Markdown for human-readable reports. Configure field selection, custom templates, and formatting options. Use the live preview to see exactly how your output will look before running the workflow."
   }
 };
 
@@ -136,6 +142,7 @@ const nodeConfig: Record<string, { icon: any; color: string; border: string }> =
   webhook: { icon: Globe, color: "bg-rose-500/10 text-rose-400", border: "border-rose-500/30" },
   api_call: { icon: Globe, color: "bg-sky-500/10 text-sky-400", border: "border-sky-500/30" },
   knowledge_query: { icon: BookOpen, color: "bg-lime-500/10 text-lime-400", border: "border-lime-500/30" },
+  output_formatter: { icon: FileJson, color: "bg-fuchsia-500/10 text-fuchsia-400", border: "border-fuchsia-500/30" },
   default: { icon: ShieldAlert, color: "bg-secondary text-foreground", border: "border-border" }
 };
 
@@ -189,6 +196,244 @@ const CustomNode = ({ data, type, isConnectable, selected }: any) => {
 const nodeTypes = Object.fromEntries(
   Object.keys(nodeConfig).filter(k => k !== 'default').map(k => [k, CustomNode])
 );
+
+function generateFormatterPreview(format: string, localData: any): string {
+  const sampleData = {
+    name: "Alice Johnson",
+    email: "alice@example.com",
+    role: "Developer",
+    score: 95,
+    status: "active",
+    tags: ["ai", "automation", "agents"],
+    created: "2026-03-21T10:30:00Z"
+  };
+
+  const fields = (localData.formatterFields || '').split(',').map((f: string) => f.trim()).filter(Boolean);
+  const selectedFields = fields.length > 0 ? fields : Object.keys(sampleData);
+  const filteredData: Record<string, any> = {};
+  selectedFields.forEach((f: string) => {
+    if (f in sampleData) filteredData[f] = (sampleData as any)[f];
+    else filteredData[f] = `{{${f}}}`;
+  });
+
+  if (format === 'json') {
+    const indent = localData.jsonIndent || 2;
+    const wrapper = localData.jsonWrapper || 'object';
+    let dataToFormat = filteredData;
+    if (localData.jsonSortKeys) {
+      const sorted: Record<string, any> = {};
+      Object.keys(dataToFormat).sort().forEach(k => { sorted[k] = dataToFormat[k]; });
+      dataToFormat = sorted;
+    }
+    if (wrapper === 'array') return JSON.stringify([dataToFormat], null, indent);
+    if (wrapper === 'envelope') return JSON.stringify({ success: true, data: dataToFormat, timestamp: new Date().toISOString() }, null, indent);
+    return JSON.stringify(dataToFormat, null, indent);
+  }
+
+  if (format === 'csv') {
+    const delimiter = localData.csvDelimiter || ',';
+    const quoteAll = localData.csvQuoteAll || false;
+    const headers = selectedFields;
+    const fmt = (v: any) => {
+      const s = Array.isArray(v) ? v.join('; ') : String(v);
+      return quoteAll || s.includes(delimiter) || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const headerRow = headers.map(h => quoteAll ? `"${h}"` : h).join(delimiter);
+    const dataRow = headers.map(h => fmt(filteredData[h] ?? '')).join(delimiter);
+    if (localData.csvHeaders === false) return dataRow;
+    return `${headerRow}\n${dataRow}`;
+  }
+
+  if (format === 'markdown') {
+    const mdStyle = localData.markdownStyle || 'table';
+    if (mdStyle === 'table') {
+      const headers = selectedFields;
+      const headerRow = `| ${headers.join(' | ')} |`;
+      const sepRow = `| ${headers.map(() => '---').join(' | ')} |`;
+      const dataRow = `| ${headers.map(h => {
+        const v = filteredData[h];
+        return Array.isArray(v) ? v.join(', ') : String(v ?? '');
+      }).join(' | ')} |`;
+      return `${headerRow}\n${sepRow}\n${dataRow}`;
+    }
+    if (mdStyle === 'list') {
+      return selectedFields.map(f => `- **${f}**: ${Array.isArray(filteredData[f]) ? filteredData[f].join(', ') : filteredData[f] ?? ''}`).join('\n');
+    }
+    if (mdStyle === 'heading') {
+      return selectedFields.map(f => `## ${f}\n${Array.isArray(filteredData[f]) ? filteredData[f].join(', ') : filteredData[f] ?? ''}\n`).join('\n');
+    }
+    if (mdStyle === 'custom') {
+      let tmpl = localData.markdownTemplate || '# Report\n\n{{#each fields}}\n- **{{key}}**: {{value}}\n{{/each}}';
+      selectedFields.forEach(f => {
+        const v = Array.isArray(filteredData[f]) ? filteredData[f].join(', ') : String(filteredData[f] ?? '');
+        tmpl = tmpl.replace(new RegExp(`\\{\\{${f}\\}\\}`, 'g'), v);
+      });
+      return tmpl;
+    }
+    return selectedFields.map(f => `- **${f}**: ${filteredData[f] ?? ''}`).join('\n');
+  }
+
+  return JSON.stringify(filteredData, null, 2);
+}
+
+function OutputFormatterConfig({ localData, update }: { localData: any; update: (key: string, value: any) => void }) {
+  const format = localData.formatterFormat || 'json';
+  const [showPreview, setShowPreview] = useState(true);
+  const preview = generateFormatterPreview(format, localData);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+          Output Format
+          <span className="text-blue-400 cursor-help" title="Choose how the incoming data should be formatted"><Info className="w-3 h-3" /></span>
+        </Label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {[
+            { value: 'json', label: 'JSON', icon: '{ }' },
+            { value: 'csv', label: 'CSV', icon: ',' },
+            { value: 'markdown', label: 'Markdown', icon: 'MD' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => update('formatterFormat', opt.value)}
+              className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-all ${
+                format === opt.value
+                  ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-400'
+                  : 'border-white/10 bg-secondary/30 text-muted-foreground hover:border-white/20'
+              }`}
+            >
+              <span className="text-sm font-mono font-bold">{opt.icon}</span>
+              <span>{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Fields to Include</Label>
+        <Input
+          value={localData.formatterFields || ''}
+          onChange={e => update('formatterFields', e.target.value)}
+          placeholder="name, email, score (leave empty for all)"
+          className="bg-secondary/50 border-white/10 h-8 text-sm"
+        />
+        <p className="text-[10px] text-muted-foreground">Comma-separated field names. Leave empty to include all fields from the input data.</p>
+      </div>
+
+      {format === 'json' && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">JSON Structure</Label>
+            <Select value={localData.jsonWrapper || 'object'} onValueChange={v => update('jsonWrapper', v)}>
+              <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="object">Plain Object</SelectItem>
+                <SelectItem value="array">Wrap in Array</SelectItem>
+                <SelectItem value="envelope">API Envelope (success + data + timestamp)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Indentation</Label>
+            <Select value={String(localData.jsonIndent || 2)} onValueChange={v => update('jsonIndent', Number(v))}>
+              <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Minified (no whitespace)</SelectItem>
+                <SelectItem value="2">2 spaces (standard)</SelectItem>
+                <SelectItem value="4">4 spaces (expanded)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+            <Label className="text-xs">Sort keys alphabetically</Label>
+            <Switch checked={localData.jsonSortKeys || false} onCheckedChange={v => update('jsonSortKeys', v)} />
+          </div>
+        </>
+      )}
+
+      {format === 'csv' && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Delimiter</Label>
+            <Select value={localData.csvDelimiter || ','} onValueChange={v => update('csvDelimiter', v)}>
+              <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value=",">Comma (,)</SelectItem>
+                <SelectItem value=";">Semicolon (;)</SelectItem>
+                <SelectItem value="\t">Tab</SelectItem>
+                <SelectItem value="|">Pipe (|)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+            <div>
+              <Label className="text-xs">Include Header Row</Label>
+              <p className="text-[10px] text-muted-foreground">Column names as first row</p>
+            </div>
+            <Switch checked={localData.csvHeaders !== false} onCheckedChange={v => update('csvHeaders', v)} />
+          </div>
+          <div className="flex items-center justify-between p-2 rounded-lg border border-white/10 bg-secondary/30">
+            <div>
+              <Label className="text-xs">Quote All Fields</Label>
+              <p className="text-[10px] text-muted-foreground">Wrap every value in quotes</p>
+            </div>
+            <Switch checked={localData.csvQuoteAll || false} onCheckedChange={v => update('csvQuoteAll', v)} />
+          </div>
+        </>
+      )}
+
+      {format === 'markdown' && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Markdown Style</Label>
+            <Select value={localData.markdownStyle || 'table'} onValueChange={v => update('markdownStyle', v)}>
+              <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="table">Table</SelectItem>
+                <SelectItem value="list">Bullet List</SelectItem>
+                <SelectItem value="heading">Headings with Content</SelectItem>
+                <SelectItem value="custom">Custom Template</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {localData.markdownStyle === 'custom' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Custom Template</Label>
+              <Textarea
+                value={localData.markdownTemplate || '# Report\n\n- **Name**: {{name}}\n- **Email**: {{email}}\n- **Score**: {{score}}'}
+                onChange={e => update('markdownTemplate', e.target.value)}
+                className="bg-secondary/50 border-white/10 text-sm resize-none font-mono"
+                rows={5}
+              />
+              <p className="text-[10px] text-muted-foreground">Use {'{{fieldName}}'} to insert values from the input data.</p>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="border-t border-white/5 pt-3">
+        <button
+          onClick={() => setShowPreview(!showPreview)}
+          className="w-full flex items-center justify-between mb-2"
+        >
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+            <Eye className="w-3 h-3" />
+            Live Preview
+          </p>
+          {showPreview ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+        </button>
+        {showPreview && (
+          <div className="rounded-lg border border-fuchsia-500/20 bg-black/30 p-3 overflow-x-auto">
+            <pre className="text-[11px] text-fuchsia-300/80 font-mono whitespace-pre leading-relaxed max-h-[200px] overflow-y-auto">
+              {preview}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: { 
   node: any; agents: any[]; onUpdate: (id: string, data: any) => void; onClose: () => void; onDelete: (id: string) => void;
@@ -669,6 +914,10 @@ function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: {
                 <p className="text-[10px] text-muted-foreground">Minimum similarity score (0-1) for retrieved documents. Higher = more relevant but fewer results.</p>
               </div>
             </div>
+          )}
+
+          {type === 'output_formatter' && (
+            <OutputFormatterConfig localData={localData} update={update} />
           )}
         </div>
 

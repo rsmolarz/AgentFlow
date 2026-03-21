@@ -191,6 +191,7 @@ export const ListWorkflowsResponseItem = zod.object({
               "error_handler",
               "human_review",
               "merge",
+              "output_formatter",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -319,6 +320,7 @@ export const GetWorkflowResponse = zod.object({
               "error_handler",
               "human_review",
               "merge",
+              "output_formatter",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -390,6 +392,7 @@ export const UpdateWorkflowBody = zod.object({
               "error_handler",
               "human_review",
               "merge",
+              "output_formatter",
             ]),
             label: zod.string(),
             position: zod.object({
@@ -449,6 +452,7 @@ export const UpdateWorkflowResponse = zod.object({
               "error_handler",
               "human_review",
               "merge",
+              "output_formatter",
             ]),
             label: zod.string(),
             position: zod.object({
