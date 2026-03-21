@@ -8,3 +8,4 @@ export * from "./integrations";
 export * from "./settings";
 export * from "./ab-tests";
 export * from "./workflow-versions";
+export * from "./bulk-executions";

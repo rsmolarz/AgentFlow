@@ -18,7 +18,8 @@ import {
   FlaskConical,
   Lightbulb,
   Trophy,
-  GitCompareArrows
+  GitCompareArrows,
+  FileSpreadsheet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { icon: Plug, label: "Integrations", href: "/integrations" },
   { icon: Blocks, label: "Templates", href: "/templates" },
   { icon: GitCompareArrows, label: "A/B Testing", href: "/ab-testing" },
+  { icon: FileSpreadsheet, label: "Bulk Execution", href: "/bulk-execution" },
   { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
   { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];

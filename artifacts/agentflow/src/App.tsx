@@ -19,6 +19,7 @@ import AgentChat from "./pages/agent-chat";
 import FeatureRequests from "./pages/feature-requests";
 import Leaderboard from "./pages/leaderboard";
 import ABTesting from "./pages/ab-testing";
+import BulkExecution from "./pages/bulk-execution";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -74,6 +75,9 @@ function Router() {
       </Route>
       <Route path="/ab-testing">
         <Layout><ABTesting /></Layout>
+      </Route>
+      <Route path="/bulk-execution">
+        <Layout><BulkExecution /></Layout>
       </Route>
 
       <Route component={NotFound} />

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { executionsTable, executionLogsTable, workflowsTable } from "@workspace/db/schema";
+import { executionsTable, executionLogsTable, workflowsTable, bulkExecutionsTable } from "@workspace/db/schema";
 import { eq, desc, and, sql, count } from "drizzle-orm";
 import {
   RunWorkflowBody,
@@ -223,6 +223,163 @@ router.get("/executions/:executionId/logs", async (req, res) => {
       .where(eq(executionLogsTable.executionId, executionId))
       .orderBy(executionLogsTable.id);
     res.json(logs);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.post("/workflows/:workflowId/bulk-run", async (req, res) => {
+  try {
+    const workflowId = Number(req.params.workflowId);
+    const { rows, headers } = req.body as { rows: Record<string, any>[]; headers: string[] };
+
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "No rows provided" });
+    }
+    if (rows.length > 500) {
+      return res.status(400).json({ error: "Maximum 500 rows per bulk execution" });
+    }
+
+    const [workflow] = await db.select().from(workflowsTable).where(eq(workflowsTable.id, workflowId));
+    if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+
+    const [bulkExec] = await db
+      .insert(bulkExecutionsTable)
+      .values({
+        workflowId,
+        workflowName: workflow.name,
+        status: "running",
+        totalRows: rows.length,
+        completedRows: 0,
+        failedRows: 0,
+        headers: headers || [],
+        results: [],
+        startedAt: new Date(),
+      })
+      .returning();
+
+    processBulkExecution(bulkExec.id, workflowId, workflow, rows);
+
+    res.status(201).json(bulkExec);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+async function processBulkExecution(
+  bulkId: number,
+  workflowId: number,
+  workflow: any,
+  rows: Record<string, any>[]
+) {
+  const results: any[] = [];
+  let completed = 0;
+  let failed = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowStart = Date.now();
+    try {
+      const nodes = workflow.definition?.nodes || [];
+      await new Promise((r) => setTimeout(r, 200 + Math.random() * 800));
+
+      const rowFailed = Math.random() < 0.05;
+      const duration = (Date.now() - rowStart) / 1000;
+
+      if (rowFailed) {
+        failed++;
+        results.push({
+          row: i + 1,
+          status: "failed",
+          input: rows[i],
+          error: "Simulated processing error",
+          duration,
+        });
+      } else {
+        completed++;
+        results.push({
+          row: i + 1,
+          status: "completed",
+          input: rows[i],
+          output: {
+            result: `Processed row ${i + 1} through ${nodes.length} nodes`,
+            processedFields: Object.keys(rows[i]),
+          },
+          duration,
+        });
+      }
+
+      await db
+        .update(bulkExecutionsTable)
+        .set({
+          completedRows: completed,
+          failedRows: failed,
+          results,
+        })
+        .where(eq(bulkExecutionsTable.id, bulkId));
+    } catch (err) {
+      failed++;
+      results.push({
+        row: i + 1,
+        status: "failed",
+        input: rows[i],
+        error: String(err),
+        duration: (Date.now() - rowStart) / 1000,
+      });
+    }
+  }
+
+  const endTime = new Date();
+  const [exec] = await db.select().from(bulkExecutionsTable).where(eq(bulkExecutionsTable.id, bulkId));
+  const duration = exec?.startedAt ? (endTime.getTime() - exec.startedAt.getTime()) / 1000 : 0;
+
+  await db
+    .update(bulkExecutionsTable)
+    .set({
+      status: "completed",
+      completedRows: completed,
+      failedRows: failed,
+      results,
+      completedAt: endTime,
+      duration,
+    })
+    .where(eq(bulkExecutionsTable.id, bulkId));
+}
+
+router.get("/bulk-executions", async (req, res) => {
+  try {
+    const workflowId = req.query.workflowId ? Number(req.query.workflowId) : undefined;
+    const conditions = [];
+    if (workflowId) conditions.push(eq(bulkExecutionsTable.workflowId, workflowId));
+
+    const items = await db
+      .select()
+      .from(bulkExecutionsTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(bulkExecutionsTable.createdAt))
+      .limit(50);
+
+    res.json(items);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get("/bulk-executions/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [exec] = await db.select().from(bulkExecutionsTable).where(eq(bulkExecutionsTable.id, id));
+    if (!exec) return res.status(404).json({ error: "Bulk execution not found" });
+    res.json(exec);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete("/bulk-executions/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.delete(bulkExecutionsTable).where(eq(bulkExecutionsTable.id, id));
+    res.status(204).send();
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
