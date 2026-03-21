@@ -19,7 +19,8 @@ import {
   Lightbulb,
   Trophy,
   GitCompareArrows,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Webhook
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { icon: Blocks, label: "Templates", href: "/templates" },
   { icon: GitCompareArrows, label: "A/B Testing", href: "/ab-testing" },
   { icon: FileSpreadsheet, label: "Bulk Execution", href: "/bulk-execution" },
+  { icon: Webhook, label: "Webhooks", href: "/webhooks" },
   { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
   { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];

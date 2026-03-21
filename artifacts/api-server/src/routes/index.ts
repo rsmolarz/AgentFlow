@@ -14,6 +14,7 @@ import promptOptimizerRouter from "./prompt-optimizer";
 import abTestsRouter from "./ab-tests";
 import searchRouter from "./search";
 import schedulesRouter from "./schedules";
+import webhooksRouter from "./webhooks";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(evaluationsRouter);
 router.use(integrationsRouter);
 router.use(settingsRouter);
 router.use(schedulesRouter);
+router.use(webhooksRouter);
 
 export default router;

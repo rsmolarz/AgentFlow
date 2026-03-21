@@ -20,6 +20,7 @@ import FeatureRequests from "./pages/feature-requests";
 import Leaderboard from "./pages/leaderboard";
 import ABTesting from "./pages/ab-testing";
 import BulkExecution from "./pages/bulk-execution";
+import Webhooks from "./pages/webhooks";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -78,6 +79,9 @@ function Router() {
       </Route>
       <Route path="/bulk-execution">
         <Layout><BulkExecution /></Layout>
+      </Route>
+      <Route path="/webhooks">
+        <Layout><Webhooks /></Layout>
       </Route>
 
       <Route component={NotFound} />
