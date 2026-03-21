@@ -262,6 +262,40 @@ router.get("/analytics/cost-forecast", async (req, res) => {
   }
 });
 
+router.get("/analytics/agent-dependency-graph", async (_req, res) => {
+  try {
+    const agents = await db.select({ id: agentsTable.id, name: agentsTable.name }).from(agentsTable);
+    const workflows = await db.select({ id: workflowsTable.id, name: workflowsTable.name, definition: workflowsTable.definition }).from(workflowsTable);
+
+    const nodes: { id: string; label: string; type: "agent" | "workflow" }[] = [];
+    const edges: { source: string; target: string }[] = [];
+
+    for (const a of agents) {
+      nodes.push({ id: `agent-${a.id}`, label: a.name, type: "agent" });
+    }
+    for (const w of workflows) {
+      nodes.push({ id: `workflow-${w.id}`, label: w.name, type: "workflow" });
+      const def = w.definition as any;
+      if (def?.nodes && Array.isArray(def.nodes)) {
+        for (const node of def.nodes) {
+          if (node.data?.agentId) {
+            const agentNodeId = `agent-${node.data.agentId}`;
+            if (nodes.find(n => n.id === agentNodeId)) {
+              if (!edges.find(e => e.source === `workflow-${w.id}` && e.target === agentNodeId)) {
+                edges.push({ source: `workflow-${w.id}`, target: agentNodeId });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    res.json({ nodes, edges });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/analytics/token-heatmap", async (_req, res) => {
   try {
     const rows = await db.execute(sql`

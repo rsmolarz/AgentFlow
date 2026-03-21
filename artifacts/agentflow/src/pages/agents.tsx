@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { 
   useListAgents, 
@@ -6,7 +6,7 @@ import {
   useDeleteAgent,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle, Copy, Tag, X } from "lucide-react";
+import { Bot, Plus, MoreVertical, Search, Trash2, Edit2, Play, BrainCircuit, ActivitySquare, Code2, PenTool, BarChart2, Headphones, Mail, Info, HelpCircle, Thermometer, Brain, Wrench, Shield, Users, MessageSquare, Database, Clock, Layers, GitBranch, Sparkles, Loader2, RotateCcw, Check, Heart, Wifi, WifiOff, AlertTriangle, Copy, Tag, X, Network, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -130,6 +130,179 @@ export default function Agents() {
           {filteredAgents?.map(agent => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
+        </div>
+      )}
+
+      <AgentDependencyGraph />
+    </div>
+  );
+}
+
+function AgentDependencyGraph() {
+  const [expanded, setExpanded] = useState(false);
+  const [graphData, setGraphData] = useState<{ nodes: { id: string; label: string; type: "agent" | "workflow" }[]; edges: { source: string; target: string }[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (!expanded || graphData) return;
+    setLoading(true);
+    fetch(`${API_BASE}/api/analytics/agent-dependency-graph`)
+      .then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then(d => {
+        if (Array.isArray(d.nodes) && Array.isArray(d.edges)) {
+          setGraphData(d);
+        } else {
+          setGraphData({ nodes: [], edges: [] });
+        }
+      })
+      .catch(() => setGraphData({ nodes: [], edges: [] }))
+      .finally(() => setLoading(false));
+  }, [expanded]);
+
+  const layout = useMemo(() => {
+    if (!graphData || graphData.nodes.length === 0) return null;
+    const WIDTH = 800;
+    const HEIGHT = 400;
+    const agentNodes = graphData.nodes.filter(n => n.type === "agent");
+    const workflowNodes = graphData.nodes.filter(n => n.type === "workflow");
+    const positions: Record<string, { x: number; y: number }> = {};
+
+    agentNodes.forEach((n, i) => {
+      const cols = Math.max(agentNodes.length, 1);
+      positions[n.id] = {
+        x: (WIDTH / (cols + 1)) * (i + 1),
+        y: HEIGHT * 0.25,
+      };
+    });
+
+    workflowNodes.forEach((n, i) => {
+      const cols = Math.max(workflowNodes.length, 1);
+      positions[n.id] = {
+        x: (WIDTH / (cols + 1)) * (i + 1),
+        y: HEIGHT * 0.75,
+      };
+    });
+
+    return { positions, width: WIDTH, height: HEIGHT };
+  }, [graphData]);
+
+  return (
+    <div className="glass-card rounded-xl overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center">
+            <Network className="w-5 h-5 text-violet-400" />
+          </div>
+          <div className="text-left">
+            <h3 className="font-semibold text-foreground">Agent Dependency Graph</h3>
+            <p className="text-sm text-muted-foreground">Visual map showing which workflows use which agents</p>
+          </div>
+        </div>
+        {expanded ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+      </button>
+
+      {expanded && (
+        <div className="p-5 pt-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : !graphData || graphData.nodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+              <Network className="w-8 h-8 mb-2 opacity-50" />
+              <p>No agents or workflows found</p>
+            </div>
+          ) : layout ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500" /> Agents ({graphData.nodes.filter(n => n.type === "agent").length})
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-indigo-500" /> Workflows ({graphData.nodes.filter(n => n.type === "workflow").length})
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded bg-muted-foreground/30 w-6 h-0.5" /> Connections ({graphData.edges.length})
+                </span>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-border bg-secondary/20">
+                <svg
+                  ref={svgRef}
+                  viewBox={`0 0 ${layout.width} ${layout.height}`}
+                  className="w-full"
+                  style={{ minHeight: "300px", maxHeight: "450px" }}
+                >
+                  <defs>
+                    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                      <polygon points="0 0, 8 3, 0 6" className="fill-muted-foreground/40" />
+                    </marker>
+                  </defs>
+
+                  {graphData.edges.map((edge, i) => {
+                    const from = layout.positions[edge.source];
+                    const to = layout.positions[edge.target];
+                    if (!from || !to) return null;
+                    return (
+                      <line
+                        key={`edge-${i}`}
+                        x1={from.x}
+                        y1={from.y}
+                        x2={to.x}
+                        y2={to.y}
+                        stroke="#888888"
+                        strokeOpacity="0.4"
+                        strokeWidth="2"
+                        strokeDasharray="6 3"
+                        markerEnd="url(#arrowhead)"
+                      />
+                    );
+                  })}
+
+                  {graphData.nodes.map(node => {
+                    const pos = layout.positions[node.id];
+                    if (!pos) return null;
+                    const isAgent = node.type === "agent";
+                    return (
+                      <g key={node.id}>
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={isAgent ? 28 : 24}
+                          fill={isAgent ? "rgba(16,185,129,0.2)" : "rgba(99,102,241,0.2)"}
+                          stroke={isAgent ? "rgba(16,185,129,0.6)" : "rgba(99,102,241,0.6)"}
+                          strokeWidth="2"
+                        />
+                        <text
+                          x={pos.x}
+                          y={pos.y + 5}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize="14"
+                        >
+                          {isAgent ? "🤖" : "⚡"}
+                        </text>
+                        <text
+                          x={pos.x}
+                          y={pos.y + (isAgent ? -38 : 38)}
+                          textAnchor="middle"
+                          dominantBaseline={isAgent ? "auto" : "hanging"}
+                          fill={isAgent ? "#34d399" : "#818cf8"}
+                          fontSize="11"
+                          fontWeight="500"
+                        >
+                          {node.label.length > 18 ? node.label.slice(0, 16) + "…" : node.label}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
