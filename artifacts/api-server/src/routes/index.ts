@@ -13,6 +13,7 @@ import settingsRouter from "./settings";
 import promptOptimizerRouter from "./prompt-optimizer";
 import abTestsRouter from "./ab-tests";
 import searchRouter from "./search";
+import schedulesRouter from "./schedules";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(featureRequestsRouter);
 router.use(evaluationsRouter);
 router.use(integrationsRouter);
 router.use(settingsRouter);
+router.use(schedulesRouter);
 
 export default router;

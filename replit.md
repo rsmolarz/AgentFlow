@@ -52,6 +52,7 @@ The frontend uses React, Vite, Tailwind CSS v4, and `shadcn/ui` to provide a mod
 -   **AI Builder**: Generates workflows from natural language descriptions by identifying triggers, agents, conditions, and error handling.
 -   **A/B Testing**: Compares agent configurations using GPT-4o as a judge.
 -   **Output Formatter**: A workflow node for post-processing agent output into JSON, CSV, or Markdown.
+-   **Scheduled Triggers**: Enhanced trigger node in workflow builder with 9 cron presets (5m/15m/1h/6h/9am/12am/M-F/Mon/1st), timezone selector, persistent schedule storage via `workflow_schedules` DB table, active schedule management with enable/disable toggles.
 -   **Semantic Search**: AI-powered search bar using OpenAI embeddings (`text-embedding-3-small`) with cosine similarity scoring, fuzzy fallback, ⌘K shortcut, keyboard navigation, dropdown results with match scores.
 
 ## System Design Choices

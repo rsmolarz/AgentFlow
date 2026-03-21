@@ -197,6 +197,170 @@ const nodeTypes = Object.fromEntries(
   Object.keys(nodeConfig).filter(k => k !== 'default').map(k => [k, CustomNode])
 );
 
+const CRON_PRESETS = [
+  { label: "Every 5 min", cron: "*/5 * * * *", icon: "5m" },
+  { label: "Every 15 min", cron: "*/15 * * * *", icon: "15m" },
+  { label: "Every hour", cron: "0 * * * *", icon: "1h" },
+  { label: "Every 6 hours", cron: "0 */6 * * *", icon: "6h" },
+  { label: "Daily at 9 AM", cron: "0 9 * * *", icon: "9am" },
+  { label: "Daily at midnight", cron: "0 0 * * *", icon: "12am" },
+  { label: "Weekdays 9 AM", cron: "0 9 * * 1-5", icon: "M-F" },
+  { label: "Weekly Monday", cron: "0 0 * * 1", icon: "Mon" },
+  { label: "Monthly 1st", cron: "0 0 1 * *", icon: "1st" },
+];
+
+function ScheduleTriggerConfig({ localData, update, workflowId }: { localData: any; update: (key: string, value: any) => void; workflowId?: number }) {
+  const { toast } = useToast();
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const API_BASE = import.meta.env.VITE_API_URL || "";
+
+  useEffect(() => {
+    if (workflowId) {
+      fetch(`${API_BASE}/api/workflows/${workflowId}/schedules`)
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setSchedules(data); })
+        .catch(() => {});
+    }
+  }, [workflowId]);
+
+  const saveSchedule = async () => {
+    if (!workflowId || !localData.schedule) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/schedules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cronExpression: localData.schedule,
+          timezone: localData.scheduleTimezone || "UTC",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save");
+      }
+      const schedule = await res.json();
+      setSchedules(prev => [...prev, schedule]);
+      toast({ title: "Schedule saved!", description: `Next run: ${new Date(schedule.nextRunAt).toLocaleString()}` });
+    } catch (err: any) {
+      toast({ title: "Error saving schedule", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleSchedule = async (id: number, enabled: boolean) => {
+    try {
+      await fetch(`${API_BASE}/api/schedules/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, enabled } : s));
+    } catch {}
+  };
+
+  const deleteSchedule = async (id: number) => {
+    try {
+      await fetch(`${API_BASE}/api/schedules/${id}`, { method: "DELETE" });
+      setSchedules(prev => prev.filter(s => s.id !== id));
+      toast({ title: "Schedule removed" });
+    } catch {}
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Quick Presets</Label>
+        <div className="grid grid-cols-3 gap-1">
+          {CRON_PRESETS.map(preset => (
+            <button
+              key={preset.cron}
+              onClick={() => update('schedule', preset.cron)}
+              className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg border text-[10px] transition-all ${
+                localData.schedule === preset.cron
+                  ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                  : 'border-white/10 bg-secondary/30 text-muted-foreground hover:border-white/20'
+              }`}
+            >
+              <span className="font-mono font-bold text-xs">{preset.icon}</span>
+              <span className="truncate w-full text-center">{preset.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Cron Expression</Label>
+        <Input
+          value={localData.schedule || ''}
+          onChange={e => update('schedule', e.target.value)}
+          placeholder="*/5 * * * *"
+          className="bg-secondary/50 border-white/10 h-8 text-sm font-mono"
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Format: <code className="bg-secondary px-1 rounded">min hour day month weekday</code>
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Timezone</Label>
+        <Select value={localData.scheduleTimezone || 'UTC'} onValueChange={v => update('scheduleTimezone', v)}>
+          <SelectTrigger className="bg-secondary/50 border-white/10 h-8 text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="UTC">UTC</SelectItem>
+            <SelectItem value="America/New_York">Eastern (ET)</SelectItem>
+            <SelectItem value="America/Chicago">Central (CT)</SelectItem>
+            <SelectItem value="America/Denver">Mountain (MT)</SelectItem>
+            <SelectItem value="America/Los_Angeles">Pacific (PT)</SelectItem>
+            <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+            <SelectItem value="Europe/Berlin">Berlin (CET/CEST)</SelectItem>
+            <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+            <SelectItem value="Asia/Shanghai">Shanghai (CST)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {localData.schedule && workflowId && (
+        <Button
+          size="sm"
+          className="w-full h-8 text-xs"
+          onClick={saveSchedule}
+          disabled={saving}
+        >
+          {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Clock className="w-3 h-3 mr-1" />}
+          Save Schedule
+        </Button>
+      )}
+
+      {schedules.length > 0 && (
+        <div className="border-t border-white/5 pt-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Active Schedules ({schedules.filter(s => s.enabled).length})
+          </p>
+          <div className="space-y-1.5">
+            {schedules.map(s => (
+              <div key={s.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${s.enabled ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/5 bg-secondary/20 opacity-60'}`}>
+                <Switch checked={s.enabled} onCheckedChange={v => toggleSchedule(s.id, v)} className="scale-75" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-[10px] truncate">{s.cronExpression}</p>
+                  <p className="text-[9px] text-muted-foreground">{s.label || s.cronExpression}</p>
+                  {s.nextRunAt && <p className="text-[9px] text-emerald-400/70">Next: {new Date(s.nextRunAt).toLocaleString()}</p>}
+                </div>
+                <button onClick={() => deleteSchedule(s.id)} className="text-muted-foreground hover:text-destructive">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function generateFormatterPreview(format: string, localData: any): string {
   const sampleData = {
     name: "Alice Johnson",
@@ -435,8 +599,8 @@ function OutputFormatterConfig({ localData, update }: { localData: any; update: 
   );
 }
 
-function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: { 
-  node: any; agents: any[]; onUpdate: (id: string, data: any) => void; onClose: () => void; onDelete: (id: string) => void;
+function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete, workflowId }: { 
+  node: any; agents: any[]; onUpdate: (id: string, data: any) => void; onClose: () => void; onDelete: (id: string) => void; workflowId?: number;
 }) {
   const type = node.type || 'default';
   const info = nodeDescriptions[type] || nodeDescriptions.trigger;
@@ -531,11 +695,7 @@ function NodeConfigPanel({ node, agents, onUpdate, onClose, onDelete }: {
                 </Select>
               </div>
               {localData.triggerType === 'schedule' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Schedule (cron expression)</Label>
-                  <Input value={localData.schedule || ''} onChange={e => update('schedule', e.target.value)} placeholder="*/5 * * * * (every 5 min)" className="bg-secondary/50 border-white/10 h-8 text-sm font-mono" />
-                  <p className="text-[10px] text-muted-foreground">Common: <code className="bg-secondary px-1 rounded">0 * * * *</code> hourly, <code className="bg-secondary px-1 rounded">0 9 * * *</code> daily 9am</p>
-                </div>
+                <ScheduleTriggerConfig localData={localData} update={update} workflowId={workflowId} />
               )}
               {localData.triggerType === 'webhook' && (
                 <div className="space-y-1.5">
@@ -1638,6 +1798,7 @@ function EditorCanvas({ id }: { id: number }) {
           onUpdate={handleNodeUpdate} 
           onClose={() => setSelectedNode(null)}
           onDelete={handleNodeDelete}
+          workflowId={id}
         />
       )}
 
