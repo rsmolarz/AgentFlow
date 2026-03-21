@@ -177,6 +177,106 @@ router.put("/workflows/:workflowId/versions/:versionId", async (req, res) => {
   }
 });
 
+router.post("/workflows/:workflowId/suggestions", async (req, res) => {
+  try {
+    const workflowId = Number(req.params.workflowId);
+    const [workflow] = await db.select().from(workflowsTable).where(eq(workflowsTable.id, workflowId));
+    if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+
+    const def = workflow.definition as { nodes: any[]; edges: any[] };
+    const nodesSummary = (def.nodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.type,
+      label: n.data?.label || n.type,
+      config: {
+        ...(n.data?.agentId ? { agentId: n.data.agentId } : {}),
+        ...(n.data?.triggerType ? { triggerType: n.data.triggerType } : {}),
+        ...(n.data?.conditionType ? { conditionType: n.data.conditionType } : {}),
+        ...(n.data?.code ? { hasCode: true } : {}),
+      },
+    }));
+    const edgesSummary = (def.edges || []).map((e: any) => ({
+      from: e.source,
+      to: e.target,
+      label: e.sourceHandle || "",
+    }));
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert workflow optimization consultant for an AI agent automation platform. Analyze the given workflow and provide actionable suggestions to improve it.
+
+Your suggestions should cover these categories:
+- PERFORMANCE: Speed optimizations, parallelization opportunities
+- RELIABILITY: Error handling, retry logic, fallback paths
+- COST: Token usage reduction, model selection optimization
+- STRUCTURE: Architecture improvements, node organization
+- BEST_PRACTICES: Industry standards, common patterns
+
+Return ONLY valid JSON in this exact format:
+{
+  "suggestions": [
+    {
+      "category": "PERFORMANCE|RELIABILITY|COST|STRUCTURE|BEST_PRACTICES",
+      "title": "Short title",
+      "description": "Detailed explanation of the suggestion",
+      "impact": "high|medium|low",
+      "nodeIds": ["affected-node-ids"]
+    }
+  ],
+  "overallScore": 75,
+  "summary": "Brief overall assessment of the workflow"
+}`
+        },
+        {
+          role: "user",
+          content: `Analyze this workflow named "${workflow.name}" (${workflow.description || "no description"}):
+
+Nodes (${nodesSummary.length}):
+${JSON.stringify(nodesSummary, null, 2)}
+
+Edges (${edgesSummary.length}):
+${JSON.stringify(edgesSummary, null, 2)}
+
+Status: ${workflow.status}
+Execution count: ${workflow.executionCount}
+Success rate: ${workflow.successRate}%
+Average duration: ${workflow.avgDuration}s
+
+Provide optimization suggestions.`
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 1500,
+    });
+
+    const text = completion.choices[0]?.message?.content?.trim() || "";
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    } catch {
+      parsed = {
+        suggestions: [{ category: "BEST_PRACTICES", title: "Analysis complete", description: text, impact: "medium", nodeIds: [] }],
+        overallScore: 70,
+        summary: "Analysis completed but could not be structured.",
+      };
+    }
+
+    res.json({
+      ...parsed,
+      tokensUsed: completion.usage?.total_tokens ?? 0,
+    });
+  } catch (error: any) {
+    console.error("Workflow suggestions error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate suggestions" });
+  }
+});
+
 router.delete("/workflows/:workflowId", async (req, res) => {
   try {
     const { workflowId } = DeleteWorkflowParams.parse(req.params);

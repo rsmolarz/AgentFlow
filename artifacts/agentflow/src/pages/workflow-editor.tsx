@@ -836,6 +836,142 @@ function VersionHistoryPanel({ workflowId, onRestore, onClose }: {
   );
 }
 
+interface Suggestion {
+  category: string;
+  title: string;
+  description: string;
+  impact: string;
+  nodeIds: string[];
+}
+
+interface SuggestionsData {
+  suggestions: Suggestion[];
+  overallScore: number;
+  summary: string;
+  tokensUsed: number;
+}
+
+const CATEGORY_CONFIG: Record<string, { color: string; icon: any }> = {
+  PERFORMANCE: { color: "text-blue-400 bg-blue-500/10 border-blue-500/20", icon: Zap },
+  RELIABILITY: { color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: ShieldAlert },
+  COST: { color: "text-amber-400 bg-amber-500/10 border-amber-500/20", icon: Clock },
+  STRUCTURE: { color: "text-purple-400 bg-purple-500/10 border-purple-500/20", icon: Layers },
+  BEST_PRACTICES: { color: "text-teal-400 bg-teal-500/10 border-teal-500/20", icon: CheckCircle2 },
+};
+
+function SuggestionsPanel({ workflowId, onClose }: { workflowId: number; onClose: () => void }) {
+  const { toast } = useToast();
+  const BASE = import.meta.env.BASE_URL;
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<SuggestionsData | null>(null);
+  const [error, setError] = useState("");
+
+  const analyze = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const r = await fetch(`${BASE}api/workflows/${workflowId}/suggestions`, { method: "POST" });
+      if (!r.ok) throw new Error((await r.json()).error || "Failed to analyze");
+      const result = await r.json();
+      setData(result);
+    } catch (e: any) {
+      setError(e.message);
+      toast({ title: "Analysis failed", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { analyze(); }, []);
+
+  const scoreColor = (data?.overallScore ?? 0) >= 80 ? "text-emerald-400" : (data?.overallScore ?? 0) >= 60 ? "text-amber-400" : "text-red-400";
+  const impactOrder = { high: 0, medium: 1, low: 2 };
+  const sorted = data?.suggestions?.slice().sort((a, b) => (impactOrder[a.impact as keyof typeof impactOrder] ?? 2) - (impactOrder[b.impact as keyof typeof impactOrder] ?? 2));
+
+  return (
+    <aside className="w-80 border-l border-white/5 bg-card/40 backdrop-blur-md flex flex-col z-10 shadow-2xl overflow-hidden">
+      <div className="p-4 border-b border-white/5 flex items-center justify-between">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          AI Suggestions
+        </h3>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-400 mb-3" />
+            <p className="text-sm text-muted-foreground">Analyzing your workflow...</p>
+            <p className="text-xs text-muted-foreground mt-1">AI is reviewing node structure, connections, and patterns</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-400 opacity-60" />
+            <p className="text-sm text-red-400">{error}</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={analyze}>Try Again</Button>
+          </div>
+        ) : data ? (
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-secondary/30 border border-white/5 text-center">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Workflow Health Score</p>
+              <p className={`text-3xl font-bold ${scoreColor}`}>{data.overallScore}<span className="text-lg text-muted-foreground">/100</span></p>
+              <p className="text-xs text-muted-foreground mt-2">{data.summary}</p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{sorted?.length || 0} Suggestions</p>
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={analyze}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Re-analyze
+              </Button>
+            </div>
+
+            {sorted?.map((s, i) => {
+              const cat = CATEGORY_CONFIG[s.category] || CATEGORY_CONFIG.BEST_PRACTICES;
+              const CatIcon = cat.icon;
+              return (
+                <div key={i} className="rounded-xl border border-white/5 bg-secondary/20 overflow-hidden">
+                  <div className="p-3">
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className={`p-1 rounded-md border ${cat.color} flex-shrink-0 mt-0.5`}>
+                        <CatIcon className="w-3 h-3" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{s.title}</p>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            s.impact === "high" ? "bg-red-500/10 text-red-400" :
+                            s.impact === "medium" ? "bg-amber-500/10 text-amber-400" :
+                            "bg-secondary text-muted-foreground"
+                          }`}>
+                            {s.impact}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{s.description}</p>
+                      </div>
+                    </div>
+                    {s.nodeIds && s.nodeIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {s.nodeIds.map((nid) => (
+                          <span key={nid} className="px-1.5 py-0.5 rounded bg-secondary/50 text-[10px] text-muted-foreground font-mono">{nid}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            <p className="text-[10px] text-muted-foreground text-center pt-2">
+              Used {data.tokensUsed} tokens for analysis
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
 function EditorCanvas({ id }: { id: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -843,6 +979,7 @@ function EditorCanvas({ id }: { id: number }) {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   const { data: workflow, isLoading } = useGetWorkflow(id);
   const { mutate: updateWorkflow, isPending: isSaving } = useUpdateWorkflow();
@@ -1056,8 +1193,15 @@ function EditorCanvas({ id }: { id: number }) {
           <Panel position="top-right" className="m-4 flex gap-2">
             <Button 
               variant="outline" 
+              className={`bg-card/80 backdrop-blur-md border-white/10 hover:bg-secondary ${showSuggestions ? "border-amber-500/50 text-amber-400" : ""}`}
+              onClick={() => { setShowSuggestions(!showSuggestions); if (!showSuggestions) { setShowVersions(false); setSelectedNode(null); } }}
+            >
+              <Sparkles className="w-4 h-4 mr-2" /> Optimize
+            </Button>
+            <Button 
+              variant="outline" 
               className={`bg-card/80 backdrop-blur-md border-white/10 hover:bg-secondary ${showVersions ? "border-primary/50 text-primary" : ""}`}
-              onClick={() => { setShowVersions(!showVersions); if (!showVersions) setSelectedNode(null); }}
+              onClick={() => { setShowVersions(!showVersions); if (!showVersions) { setShowSuggestions(false); setSelectedNode(null); } }}
             >
               <History className="w-4 h-4 mr-2" /> History
             </Button>
@@ -1094,7 +1238,7 @@ function EditorCanvas({ id }: { id: number }) {
         </ReactFlow>
       </main>
 
-      {selectedNode && !showVersions && (
+      {selectedNode && !showVersions && !showSuggestions && (
         <NodeConfigPanel 
           node={selectedNode} 
           agents={agents || []} 
@@ -1109,6 +1253,13 @@ function EditorCanvas({ id }: { id: number }) {
           workflowId={id}
           onRestore={handleVersionRestore}
           onClose={() => setShowVersions(false)}
+        />
+      )}
+
+      {showSuggestions && (
+        <SuggestionsPanel
+          workflowId={id}
+          onClose={() => setShowSuggestions(false)}
         />
       )}
     </div>
