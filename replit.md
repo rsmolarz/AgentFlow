@@ -91,6 +91,7 @@ The AgentFlow platform integrates with a variety of external services and librar
 - **Messaging/Communication**: Slack (for notifications).
 - **Identity Providers**: SAML/OIDC (for Security & SSO).
 - **Third-Party Integrations**: A marketplace of 82+ integrations across 12 categories, including common services for communication, databases, productivity, developer tools, CRM & Sales, cloud storage, analytics, payments, and media. Specific integrations are managed via API keys and connect/disconnect toggles.
+- **Cost Forecasting**: 30-day cost forecast on Dashboard using OLS linear regression over daily cost history. API endpoint: `GET /api/analytics/cost-forecast`. Returns 30-day history (with zero-fill for missing days), 30-day forecast, and summary stats (dailyAverage, trend, projected30d, historical30d, trendDirection). Frontend shows ComposedChart with actual (solid) and forecast (dashed amber) lines, summary cards, and trend badge.
 - **Monitoring/Evaluation**: LangSmith-style evaluation metrics.
 - **Core Libraries**:
     - `@xyflow/react` (React Flow) for workflow canvas.

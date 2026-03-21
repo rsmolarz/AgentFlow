@@ -170,4 +170,96 @@ router.get("/analytics/cost-by-provider", async (req, res) => {
   }
 });
 
+router.get("/analytics/cost-forecast", async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const dailyCosts = await db
+      .select({
+        date: sql<string>`DATE(${executionsTable.createdAt})`,
+        cost: sum(executionsTable.cost),
+        executions: count(),
+        tokens: sum(executionsTable.tokensUsed),
+      })
+      .from(executionsTable)
+      .where(gte(executionsTable.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${executionsTable.createdAt})`)
+      .orderBy(sql`DATE(${executionsTable.createdAt})`);
+
+    const costMap = new Map<string, { cost: number; executions: number; tokens: number }>();
+    for (const d of dailyCosts) {
+      costMap.set(String(d.date), {
+        cost: Math.round(Number(d.cost || 0) * 100) / 100,
+        executions: d.executions,
+        tokens: Number(d.tokens || 0),
+      });
+    }
+
+    const history: { date: string; cost: number; executions: number; tokens: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split("T")[0];
+      const entry = costMap.get(key);
+      history.push({
+        date: key,
+        cost: entry ? entry.cost : 0,
+        executions: entry ? entry.executions : 0,
+        tokens: entry ? entry.tokens : 0,
+      });
+    }
+
+    const hasData = history.some((d) => d.cost > 0);
+    const n = history.length;
+    let dailyAvg = 0;
+    let slope = 0;
+    let intercept = 0;
+
+    if (hasData) {
+      const totalCost = history.reduce((s, d) => s + d.cost, 0);
+      dailyAvg = totalCost / n;
+
+      const xMean = (n - 1) / 2;
+      const yMean = dailyAvg;
+      let num = 0;
+      let den = 0;
+      for (let i = 0; i < n; i++) {
+        num += (i - xMean) * (history[i].cost - yMean);
+        den += (i - xMean) * (i - xMean);
+      }
+      slope = den !== 0 ? num / den : 0;
+      intercept = yMean - slope * xMean;
+    }
+
+    const forecast: { date: string; cost: number }[] = [];
+    if (hasData) {
+      for (let i = 1; i <= 30; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        const projected = Math.max(0, intercept + slope * (n - 1 + i));
+        forecast.push({
+          date: d.toISOString().split("T")[0],
+          cost: Math.round(projected * 100) / 100,
+        });
+      }
+    }
+
+    const totalForecast30d = forecast.reduce((s, d) => s + d.cost, 0);
+    const totalHistorical30d = history.reduce((s, d) => s + d.cost, 0);
+
+    res.json({
+      history,
+      forecast,
+      summary: {
+        dailyAverage: Math.round(dailyAvg * 100) / 100,
+        trend: Math.round(slope * 100) / 100,
+        projected30d: Math.round(totalForecast30d * 100) / 100,
+        historical30d: Math.round(totalHistorical30d * 100) / 100,
+        trendDirection: slope > 0.01 ? "increasing" : slope < -0.01 ? "decreasing" : "stable",
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;

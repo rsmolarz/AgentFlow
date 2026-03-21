@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useGetAnalyticsOverview, useGetExecutionStats, useListExecutions, useListAgents, useListWorkflows, useGetCostByProvider } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { 
   Bot, Workflow, ActivitySquare, CheckCircle, XCircle, Clock, Zap, TrendingUp, TrendingDown, ArrowRight, 
   BarChart3, DollarSign, Rocket, BookOpen, Lightbulb, ChevronRight, X, Sparkles, Shield,
-  Database, HelpCircle
+  Database, HelpCircle, CalendarRange
 } from "lucide-react";
 import { format } from "date-fns";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ComposedChart, Line
 } from "recharts";
 import { Button } from "@/components/ui/button";
 
@@ -177,6 +179,42 @@ export default function Dashboard() {
   const { data: agents } = useListAgents();
   const { data: workflows } = useListWorkflows();
   const { data: costByProvider } = useGetCostByProvider();
+  const { data: costForecast } = useQuery({
+    queryKey: ["/api/analytics/cost-forecast"],
+    queryFn: async () => {
+      const resp = await fetch(`${import.meta.env.BASE_URL}api/analytics/cost-forecast`);
+      if (!resp.ok) throw new Error("Failed to fetch cost forecast");
+      return resp.json() as Promise<{
+        history: { date: string; cost: number; executions: number; tokens: number }[];
+        forecast: { date: string; cost: number }[];
+        summary: { dailyAverage: number; trend: number; projected30d: number; historical30d: number; trendDirection: string };
+      }>;
+    },
+  });
+
+  const forecastChartData = useMemo(() => {
+    if (!costForecast) return [];
+    const historyData = costForecast.history.map((d) => ({
+      date: d.date,
+      actual: d.cost,
+      forecast: null as number | null,
+    }));
+    const lastActual = historyData.length > 0 ? historyData[historyData.length - 1].actual : 0;
+    const bridgePoint = historyData.length > 0
+      ? { date: historyData[historyData.length - 1].date, actual: lastActual, forecast: lastActual }
+      : null;
+    const forecastData = costForecast.forecast.map((d) => ({
+      date: d.date,
+      actual: null as number | null,
+      forecast: d.cost,
+    }));
+    if (bridgePoint && forecastData.length > 0) {
+      historyData[historyData.length - 1] = bridgePoint;
+    }
+    return [...historyData, ...forecastData];
+  }, [costForecast]);
+
+  const hasForecastData = costForecast?.history?.some((d) => d.cost > 0) ?? false;
 
   const successRate = overview && overview.totalExecutions > 0
     ? ((overview.successfulExecutions / overview.totalExecutions) * 100).toFixed(1)
@@ -393,6 +431,137 @@ export default function Dashboard() {
             </div>
           </Link>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <CalendarRange className="w-5 h-5 text-primary" />
+            30-Day Cost Forecast
+          </h2>
+          {costForecast?.summary && (
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Daily Avg</p>
+                <p className="text-sm font-semibold text-foreground">${costForecast.summary.dailyAverage.toFixed(2)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Projected 30d</p>
+                <p className="text-sm font-semibold text-foreground">${costForecast.summary.projected30d.toFixed(2)}</p>
+              </div>
+              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                costForecast.summary.trendDirection === "increasing"
+                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                  : costForecast.summary.trendDirection === "decreasing"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+              }`}>
+                {costForecast.summary.trendDirection === "increasing" ? (
+                  <TrendingUp className="w-3.5 h-3.5" />
+                ) : costForecast.summary.trendDirection === "decreasing" ? (
+                  <TrendingDown className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowRight className="w-3.5 h-3.5" />
+                )}
+                {costForecast.summary.trendDirection === "increasing" ? "Costs Rising" :
+                 costForecast.summary.trendDirection === "decreasing" ? "Costs Falling" : "Stable"}
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">Historical daily costs and projected spend based on usage trends. Solid line = actual, dashed line = forecast.</p>
+        <div className="h-64">
+          {hasForecastData && forecastChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={forecastChartData}>
+                <defs>
+                  <linearGradient id="actualCostGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  tickFormatter={(val) => {
+                    try { return format(new Date(val), "MMM d"); } catch { return val; }
+                  }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  tickFormatter={(val) => `$${val}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  formatter={(value: any, name: string) => [
+                    value !== null ? `$${Number(value).toFixed(2)}` : null,
+                    name === "actual" ? "Actual Cost" : "Forecasted Cost",
+                  ]}
+                  labelFormatter={(label) => {
+                    try { return format(new Date(label), "MMM d, yyyy"); } catch { return label; }
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="actual"
+                  stroke="hsl(var(--primary))"
+                  fill="url(#actualCostGradient)"
+                  strokeWidth={2}
+                  name="actual"
+                  connectNulls={false}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="forecast"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  name="forecast"
+                  connectNulls={false}
+                  dot={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+              <CalendarRange className="w-8 h-8 mb-2 opacity-40" />
+              <p className="text-sm">No cost data yet</p>
+              <p className="text-xs mt-1">Run workflows to see cost forecasting appear here</p>
+            </div>
+          )}
+        </div>
+        {costForecast?.summary && costForecast.summary.historical30d > 0 && (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="p-3 rounded-lg bg-secondary/30 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Last 30 Days</p>
+              <p className="text-lg font-bold text-foreground">${costForecast.summary.historical30d.toFixed(2)}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-secondary/30 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Next 30 Days (est)</p>
+              <p className="text-lg font-bold text-amber-400">${costForecast.summary.projected30d.toFixed(2)}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-secondary/30 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Daily Trend</p>
+              <p className={`text-lg font-bold ${
+                costForecast.summary.trend > 0 ? "text-red-400" : costForecast.summary.trend < 0 ? "text-emerald-400" : "text-blue-400"
+              }`}>
+                {costForecast.summary.trend > 0 ? "+" : ""}{costForecast.summary.trend.toFixed(2)}/day
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
