@@ -6,3 +6,4 @@ export * from "./feature-requests";
 export * from "./evaluations";
 export * from "./integrations";
 export * from "./settings";
+export * from "./ab-tests";

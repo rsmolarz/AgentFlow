@@ -11,12 +11,14 @@ import evaluationsRouter from "./evaluations";
 import integrationsRouter from "./integrations";
 import settingsRouter from "./settings";
 import promptOptimizerRouter from "./prompt-optimizer";
+import abTestsRouter from "./ab-tests";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(agentsRouter);
 router.use(promptOptimizerRouter);
+router.use(abTestsRouter);
 router.use(workflowsRouter);
 router.use(executionsRouter);
 router.use(templatesRouter);

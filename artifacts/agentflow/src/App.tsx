@@ -18,6 +18,7 @@ import Settings from "./pages/settings";
 import AgentChat from "./pages/agent-chat";
 import FeatureRequests from "./pages/feature-requests";
 import Leaderboard from "./pages/leaderboard";
+import ABTesting from "./pages/ab-testing";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -70,6 +71,9 @@ function Router() {
       </Route>
       <Route path="/leaderboard">
         <Layout><Leaderboard /></Layout>
+      </Route>
+      <Route path="/ab-testing">
+        <Layout><ABTesting /></Layout>
       </Route>
 
       <Route component={NotFound} />
