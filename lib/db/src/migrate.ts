@@ -168,6 +168,45 @@ export async function ensureTables() {
       ALTER TABLE agents ADD COLUMN IF NOT EXISTS safety_filter BOOLEAN DEFAULT false;
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        user_id TEXT DEFAULT 'system',
+        user_name TEXT DEFAULT 'System',
+        details JSONB DEFAULT '{}',
+        ip_address TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        read BOOLEAN DEFAULT false,
+        data JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS agent_presets (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon TEXT DEFAULT '🤖',
+        category TEXT DEFAULT 'general',
+        system_prompt TEXT,
+        model TEXT DEFAULT 'gpt-4o',
+        tools JSONB DEFAULT '[]',
+        config JSONB DEFAULT '{}',
+        builtin BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     await client.query("UPDATE integrations SET connected = false, api_key = NULL WHERE api_key IS NULL AND connected = true");
 
     await client.query("DELETE FROM eval_runs WHERE agent_id IS NULL AND name IN ('Customer Support Quality','Code Review Accuracy','Content Generation Quality','Data Analysis Precision','Prompt Iteration v3.2')");
@@ -221,6 +260,29 @@ export async function ensureTables() {
         );
       }
       console.log(`Seeded ${integrations.length} integrations`);
+    }
+
+    const { rows: presetCount } = await client.query("SELECT COUNT(*) as cnt FROM agent_presets");
+    if (Number(presetCount[0].cnt) === 0) {
+      const presets = [
+        ["Customer Support Agent","support","Handles customer inquiries, resolves issues, and escalates complex cases","🎧","support","You are a helpful customer support agent. Be empathetic, clear, and solution-oriented.","gpt-4o"],
+        ["Code Reviewer","engineering","Reviews code for bugs, security issues, and best practices","💻","engineering","You are an expert code reviewer. Analyze code for bugs, security vulnerabilities, performance issues, and best practices.","gpt-4o"],
+        ["Content Writer","content","Creates blog posts, social media content, and marketing copy","✍️","content","You are a professional content writer. Create engaging, well-structured content optimized for the target audience.","gpt-4o"],
+        ["Data Analyst","analytics","Analyzes datasets, generates insights, and creates reports","📊","analytics","You are a data analyst. Analyze data patterns, generate statistical insights, and present findings clearly.","gpt-4o"],
+        ["Research Assistant","research","Conducts deep research, summarizes papers, and fact-checks","🔬","research","You are a thorough research assistant. Gather information from multiple sources, verify facts, and provide comprehensive summaries.","gpt-4o"],
+        ["Email Drafter","communication","Composes professional emails with appropriate tone","📧","communication","You are a professional email writer. Draft clear, concise emails with the appropriate tone for the context.","gpt-4o"],
+        ["SQL Expert","engineering","Writes and optimizes SQL queries across databases","🗄️","engineering","You are an SQL expert. Write efficient, optimized SQL queries and explain query plans.","gpt-4o"],
+        ["Legal Reviewer","compliance","Reviews documents for legal compliance and risks","⚖️","compliance","You are a legal document reviewer. Identify potential legal issues, compliance gaps, and risk factors.","gpt-4o"],
+        ["Meeting Summarizer","productivity","Summarizes meeting transcripts into actionable notes","📋","productivity","You are a meeting summarizer. Extract key decisions, action items, and important discussion points from meeting transcripts.","gpt-4o"],
+        ["API Integrator","engineering","Designs and implements API integrations","🔌","engineering","You are an API integration specialist. Design RESTful APIs, handle authentication, and ensure robust error handling.","gpt-4o"],
+      ];
+      for (const [name, role, desc, icon, cat, prompt, model] of presets) {
+        await client.query(
+          "INSERT INTO agent_presets (name, role, description, icon, category, system_prompt, model, builtin) VALUES ($1,$2,$3,$4,$5,$6,$7,true) ON CONFLICT DO NOTHING",
+          [name, role, desc, icon, cat, prompt, model]
+        );
+      }
+      console.log(`Seeded ${presets.length} agent presets`);
     }
 
     console.log("Database tables verified/created successfully");

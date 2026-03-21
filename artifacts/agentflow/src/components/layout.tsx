@@ -24,9 +24,24 @@ import {
   Webhook,
   BookOpen,
   Sun,
-  Moon
+  Moon,
+  Shield,
+  Brain,
+  Gauge,
+  Bug,
+  ShieldCheck,
+  Sparkles,
+  DollarSign,
+  Users,
+  MessageSquare,
+  ScrollText,
+  CheckCircle2,
+  XCircle,
+  Info,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect, useRef } from "react";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -43,13 +58,64 @@ const NAV_ITEMS = [
   { icon: Webhook, label: "Webhooks", href: "/webhooks" },
   { icon: BookOpen, label: "Prompts", href: "/prompts" },
   { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
+  { icon: Shield, label: "Audit Log", href: "/audit-log" },
+  { icon: Bell, label: "Notifications", href: "/notifications" },
+  { icon: Sparkles, label: "Agent Presets", href: "/agent-presets" },
+  { icon: Brain, label: "Memory Viewer", href: "/memory-viewer" },
+  { icon: Gauge, label: "Rate Limits", href: "/rate-limits" },
+  { icon: Bug, label: "Debug Trace", href: "/debug-trace" },
+  { icon: ShieldCheck, label: "Output Validation", href: "/output-validation" },
+  { icon: Sparkles, label: "Workflow Refiner", href: "/workflow-refiner" },
+  { icon: DollarSign, label: "Cost Optimizer", href: "/cost-optimizer" },
+  { icon: Users, label: "Team Workspaces", href: "/team-workspaces" },
+  { icon: MessageSquare, label: "Slack Notifications", href: "/slack-config" },
   { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+const notifTypeIcons: Record<string, { icon: typeof Info; color: string }> = {
+  success: { icon: CheckCircle2, color: "text-emerald-400" },
+  error: { icon: XCircle, color: "text-red-400" },
+  warning: { icon: AlertTriangle, color: "text-amber-400" },
+  info: { icon: Info, color: "text-blue-400" },
+};
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/notifications/unread-count`)
+      .then(r => r.json())
+      .then(d => setUnreadCount(d.count || 0))
+      .catch(() => {});
+  }, [location]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function openNotifications() {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications) {
+      fetch(`${API_BASE}/api/notifications`)
+        .then(r => r.json())
+        .then(d => setNotifications(Array.isArray(d) ? d.slice(0, 8) : []))
+        .catch(() => {});
+    }
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30">
@@ -131,10 +197,52 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full border border-background"></span>
-            </Button>
+            <div className="relative" ref={notifRef}>
+              <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground"
+                onClick={openNotifications}>
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 rounded-full border-2 border-background text-[10px] font-bold text-white flex items-center justify-center px-0.5">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+                {unreadCount === 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full border border-background"></span>
+                )}
+              </Button>
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border/50 rounded-xl shadow-2xl shadow-black/20 overflow-hidden z-50">
+                  <div className="flex items-center justify-between p-3 border-b border-border/30">
+                    <span className="font-semibold text-foreground text-sm">Notifications</span>
+                    <Link href="/notifications" onClick={() => setShowNotifications(false)}>
+                      <span className="text-xs text-primary hover:underline cursor-pointer">View All</span>
+                    </Link>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                        <Bell className="w-8 h-8 mb-2 opacity-50" />
+                        <p className="text-sm">No notifications</p>
+                      </div>
+                    ) : (
+                      notifications.map((n: any) => {
+                        const cfg = notifTypeIcons[n.type] || notifTypeIcons.info;
+                        const NIcon = cfg.icon;
+                        return (
+                          <div key={n.id} className={`flex items-start gap-3 p-3 hover:bg-muted/30 transition-colors border-b border-border/20 ${!n.read ? "bg-primary/5" : ""}`}>
+                            <NIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${cfg.color}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{n.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{n.message}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-purple-500/20 cursor-pointer">
               JD
             </div>

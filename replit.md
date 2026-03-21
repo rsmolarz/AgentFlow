@@ -68,6 +68,17 @@ The frontend uses React, Vite, Tailwind CSS v4, and `shadcn/ui` to provide a mod
 -   **Cost Alerts**: Budget monitoring in Settings > Notifications. Create alerts with name, budget amount ($), threshold slider (10-100%), and notification preferences (in-app + email). Cards show progress bars (green/amber/red), spend tracking, triggered alerts. Persistent via `cost_alerts` DB table with enable/disable, reset, and delete operations.
 -   **Webhook Manager**: Dedicated `/webhooks` page for creating/managing incoming webhook URLs. Features: CRUD operations, unique slug-based URLs, signing secrets with `whsec_` prefix, secret regeneration, test calls, enable/disable toggles, expandable cards with stats/payload viewer, workflow association, secret authentication via `x-webhook-secret` header.
 -   **Semantic Search**: AI-powered search bar using OpenAI embeddings (`text-embedding-3-small`) with cosine similarity scoring, fuzzy fallback, ⌘K shortcut, keyboard navigation, dropdown results with match scores.
+-   **Audit Log**: Track all platform changes, access events, and system activity. Filterable by entity type (Agent, Workflow, Integration, Settings). Stored in `audit_logs` DB table.
+-   **Notification Center**: Bell icon dropdown in header shows recent notifications with unread count badge. Full `/notifications` page with mark-read/delete. `notifications` DB table with type-based icons (success/error/warning/info).
+-   **Agent Role Presets**: 10 built-in pre-configured agent templates (API Integrator, Meeting Summarizer, Legal Reviewer, SQL Expert, Email Drafter, Research Assistant, Data Analyst, Content Writer, Code Reviewer, Customer Support). Category filters, search, one-click deploy. `agent_presets` DB table seeded on startup.
+-   **Memory Viewer**: Inspect agent memory stores (conversation history, semantic memory, entity memory) with search and clear capabilities. Displays memory entries with timestamps and metadata.
+-   **API Rate Limits**: Real-time monitoring of API provider rate limits (OpenAI, Anthropic, Google, Cohere) across multiple models. Progress bars for requests/min and tokens/min usage. Health status indicators.
+-   **Debug Trace**: Step-by-step execution trace viewer for debugging agent runs. Shows input/output/duration per step with expandable details, timing breakdown, and status indicators.
+-   **Output Validation**: Define and run validation rules (JSON schema, regex, length, keyword checks) against agent outputs. Rule management with enable/disable toggles.
+-   **Workflow Refiner**: AI-powered workflow optimization suggestions. Analyzes workflows for performance improvements, error handling, and best practices.
+-   **Cost Optimizer AI**: AI analysis of token usage patterns with actionable cost-saving recommendations. Shows monthly cost, tokens used, potential savings, and optimization score.
+-   **Team Workspaces**: Multi-team workspace management with member roles (owner/admin/member/viewer), invite system, and per-workspace agent/workflow counts.
+-   **Slack Notifications**: Configure Slack webhook integration for real-time alerts. Channel-based event routing (agent-alerts, workflow-updates, general) with per-channel event type selection.
 
 ## System Design Choices
 

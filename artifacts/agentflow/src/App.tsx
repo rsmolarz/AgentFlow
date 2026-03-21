@@ -23,6 +23,17 @@ import ABTesting from "./pages/ab-testing";
 import BulkExecution from "./pages/bulk-execution";
 import Webhooks from "./pages/webhooks";
 import Prompts from "./pages/prompts";
+import AuditLog from "./pages/audit-log";
+import NotificationCenter from "./pages/notification-center";
+import AgentPresets from "./pages/agent-presets";
+import MemoryViewer from "./pages/memory-viewer";
+import RateLimits from "./pages/rate-limits";
+import DebugTrace from "./pages/debug-trace";
+import OutputValidation from "./pages/output-validation";
+import WorkflowRefiner from "./pages/workflow-refiner";
+import CostOptimizer from "./pages/cost-optimizer";
+import TeamWorkspaces from "./pages/team-workspaces";
+import SlackConfig from "./pages/slack-config";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -87,6 +98,39 @@ function Router() {
       </Route>
       <Route path="/prompts">
         <Layout><Prompts /></Layout>
+      </Route>
+      <Route path="/audit-log">
+        <Layout><AuditLog /></Layout>
+      </Route>
+      <Route path="/notifications">
+        <Layout><NotificationCenter /></Layout>
+      </Route>
+      <Route path="/agent-presets">
+        <Layout><AgentPresets /></Layout>
+      </Route>
+      <Route path="/memory-viewer">
+        <Layout><MemoryViewer /></Layout>
+      </Route>
+      <Route path="/rate-limits">
+        <Layout><RateLimits /></Layout>
+      </Route>
+      <Route path="/debug-trace">
+        <Layout><DebugTrace /></Layout>
+      </Route>
+      <Route path="/output-validation">
+        <Layout><OutputValidation /></Layout>
+      </Route>
+      <Route path="/workflow-refiner">
+        <Layout><WorkflowRefiner /></Layout>
+      </Route>
+      <Route path="/cost-optimizer">
+        <Layout><CostOptimizer /></Layout>
+      </Route>
+      <Route path="/team-workspaces">
+        <Layout><TeamWorkspaces /></Layout>
+      </Route>
+      <Route path="/slack-config">
+        <Layout><SlackConfig /></Layout>
       </Route>
 
       <Route component={NotFound} />

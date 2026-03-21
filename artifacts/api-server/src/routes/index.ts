@@ -17,6 +17,9 @@ import schedulesRouter from "./schedules";
 import webhooksRouter from "./webhooks";
 import costAlertsRouter from "./cost-alerts";
 import promptsRouter from "./prompts";
+import notificationsRouter from "./notifications";
+import auditLogsRouter from "./audit-logs";
+import agentPresetsRouter from "./agent-presets";
 
 const router: IRouter = Router();
 
@@ -38,5 +41,8 @@ router.use(schedulesRouter);
 router.use(webhooksRouter);
 router.use(costAlertsRouter);
 router.use(promptsRouter);
+router.use(notificationsRouter);
+router.use(auditLogsRouter);
+router.use(agentPresetsRouter);
 
 export default router;
