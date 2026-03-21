@@ -214,6 +214,58 @@ router.post("/executions/:executionId/cancel", async (req, res) => {
   }
 });
 
+router.post("/executions/:executionId/replay", async (req, res) => {
+  try {
+    const executionId = Number(req.params.executionId);
+    const [original] = await db.select().from(executionsTable).where(eq(executionsTable.id, executionId));
+    if (!original) return res.status(404).json({ error: "Execution not found" });
+
+    const [workflow] = await db.select().from(workflowsTable).where(eq(workflowsTable.id, original.workflowId));
+    if (!workflow) return res.status(404).json({ error: "Original workflow not found" });
+
+    const nodeCount = workflow.definition?.nodes?.length || 0;
+
+    const [execution] = await db
+      .insert(executionsTable)
+      .values({
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        status: "running",
+        inputData: original.inputData || {},
+        startedAt: new Date(),
+        totalSteps: nodeCount,
+        completedSteps: 0,
+        currentStep: workflow.definition?.nodes?.[0]?.label || "Starting",
+      })
+      .returning();
+
+    await db
+      .update(workflowsTable)
+      .set({
+        lastRunAt: new Date(),
+        executionCount: sql`${workflowsTable.executionCount} + 1`,
+      })
+      .where(eq(workflowsTable.id, workflow.id));
+
+    const nodes = workflow.definition?.nodes || [];
+    for (const node of nodes) {
+      await db.insert(executionLogsTable).values({
+        executionId: execution.id,
+        nodeId: node.id,
+        nodeName: node.label,
+        nodeType: node.type,
+        status: "pending",
+      });
+    }
+
+    simulateExecution(execution.id, nodes);
+
+    res.status(201).json({ ...execution, replayOf: executionId });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get("/executions/:executionId/logs", async (req, res) => {
   try {
     const { executionId } = GetExecutionLogsParams.parse(req.params);

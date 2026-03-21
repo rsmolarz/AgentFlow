@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useListExecutions, useGetExecutionLogs } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { 
   ActivitySquare, Play, CheckCircle2, XCircle, Clock, FileText, ChevronDown, 
   ChevronRight, Zap, Bot, Filter, Code2, Sparkles, ArrowRightLeft, AlertTriangle,
   Search, RefreshCw, X, Timer, BarChart3, Coins, Info, Rewind, FastForward,
-  SkipBack, Eye, Layers, GitBranch
+  SkipBack, Eye, Layers, GitBranch, RotateCcw, Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -414,11 +416,30 @@ function ExecutionDetail({ exec, onClose }: { exec: any; onClose: () => void }) 
   );
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function Executions() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedExec, setSelectedExec] = useState<any>(null);
+  const [replayingId, setReplayingId] = useState<number | null>(null);
   const { data: executions, isLoading } = useListExecutions({ limit: 100 });
+
+  const handleReplay = async (execId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReplayingId(execId);
+    try {
+      const res = await fetch(`${API_BASE}/api/executions/${execId}/replay`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to replay");
+      const data = await res.json();
+      toast({ title: "Execution replayed!", description: `New execution #${data.id} started for ${data.workflowName}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/executions"] });
+    } catch {
+      toast({ title: "Replay failed", variant: "destructive" });
+    } finally { setReplayingId(null); }
+  };
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -533,14 +554,30 @@ export default function Executions() {
                         {exec.tokensUsed || '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => { e.stopPropagation(); setSelectedExec(exec); }}
-                        >
-                          <FileText className="w-4 h-4 mr-1" /> View
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-muted-foreground hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => handleReplay(exec.id, e)}
+                            disabled={replayingId === exec.id || exec.status === 'running'}
+                            title="Re-run this execution"
+                          >
+                            {replayingId === exec.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <><RotateCcw className="w-4 h-4 mr-1" /> Re-run</>
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setSelectedExec(exec); }}
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> View
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
