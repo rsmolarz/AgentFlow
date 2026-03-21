@@ -47,6 +47,7 @@ The frontend, `artifacts/agentflow`, uses React, Vite, Tailwind CSS v4, and `sha
     - **Integrations**: Marketplace for third-party services, connect/disconnect functionality.
     - **Evaluations**: LangSmith-style monitoring with quality scores, run lists, and metrics.
     - **Feature Requests**: Community feedback system with voting, tracking, and export.
+    - **Leaderboard** (`/leaderboard`): Performance ranking of agents by success rate, avg response time, execution count, and cost efficiency. Features sortable columns, provider/status filters, top-3 highlight cards, performance badges, and filtered empty state.
     - **Settings**: Multi-tab configuration for general, LLM providers, MCP, security, API keys, notifications, and advanced options.
 
 ### Backend (`artifacts/api-server`)

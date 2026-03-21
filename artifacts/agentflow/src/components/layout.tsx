@@ -16,7 +16,8 @@ import {
   Wand2,
   Plug,
   FlaskConical,
-  Lightbulb
+  Lightbulb,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
   { icon: Plug, label: "Integrations", href: "/integrations" },
   { icon: Blocks, label: "Templates", href: "/templates" },
+  { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
   { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];
 
