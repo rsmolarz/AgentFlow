@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { SemanticSearch } from "./semantic-search";
+import { useTheme } from "@/hooks/use-theme";
 import { 
   LayoutDashboard, 
   Bot, 
@@ -20,7 +21,9 @@ import {
   Trophy,
   GitCompareArrows,
   FileSpreadsheet,
-  Webhook
+  Webhook,
+  Sun,
+  Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +47,7 @@ const NAV_ITEMS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30">
@@ -115,7 +119,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <SemanticSearch />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="text-muted-foreground hover:text-foreground"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full border border-background"></span>
