@@ -262,4 +262,31 @@ router.get("/analytics/cost-forecast", async (req, res) => {
   }
 });
 
+router.get("/analytics/token-heatmap", async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT 
+        EXTRACT(DOW FROM ${executionsTable.createdAt}) AS day_of_week,
+        EXTRACT(HOUR FROM ${executionsTable.createdAt}) AS hour_of_day,
+        COALESCE(SUM(${executionsTable.tokensUsed}), 0)::int AS tokens
+      FROM ${executionsTable}
+      WHERE ${executionsTable.createdAt} >= NOW() - INTERVAL '30 days'
+      GROUP BY day_of_week, hour_of_day
+      ORDER BY day_of_week, hour_of_day
+    `);
+
+    const heatmap: { day: number; hour: number; tokens: number }[] = [];
+    for (let d = 0; d < 7; d++) {
+      for (let h = 0; h < 24; h++) {
+        const found = rows.rows.find((r: any) => Number(r.day_of_week) === d && Number(r.hour_of_day) === h);
+        heatmap.push({ day: d, hour: h, tokens: found ? Number((found as any).tokens) : 0 });
+      }
+    }
+
+    res.json({ heatmap });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

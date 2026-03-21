@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { 
   Bot, Workflow, ActivitySquare, CheckCircle, XCircle, Clock, Zap, TrendingUp, TrendingDown, ArrowRight, 
   BarChart3, DollarSign, Rocket, BookOpen, Lightbulb, ChevronRight, X, Sparkles, Shield,
-  Database, HelpCircle, CalendarRange
+  Database, HelpCircle, CalendarRange, Flame
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -564,6 +564,8 @@ export default function Dashboard() {
         )}
       </div>
 
+      <TokenUsageHeatmap />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -620,6 +622,100 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function TokenUsageHeatmap() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["/api/analytics/token-heatmap"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/analytics/token-heatmap`);
+      if (!res.ok) throw new Error("Failed to fetch heatmap");
+      return res.json() as Promise<{ heatmap: { day: number; hour: number; tokens: number }[] }>;
+    },
+  });
+
+  const maxTokens = data ? Math.max(...data.heatmap.map(d => d.tokens), 1) : 1;
+
+  const cellColor = (tokens: number) => {
+    if (tokens === 0) return "bg-secondary/30";
+    const intensity = tokens / maxTokens;
+    if (intensity < 0.2) return "bg-emerald-500/20";
+    if (intensity < 0.4) return "bg-emerald-500/40";
+    if (intensity < 0.6) return "bg-emerald-500/60";
+    if (intensity < 0.8) return "bg-amber-500/60";
+    return "bg-red-500/60";
+  };
+
+  const hourLabels = Array.from({ length: 24 }, (_, i) => {
+    if (i % 3 !== 0) return "";
+    return i === 0 ? "12a" : i < 12 ? `${i}a` : i === 12 ? "12p" : `${i - 12}p`;
+  });
+
+  return (
+    <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
+      <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+        <Flame className="w-5 h-5 text-orange-400" />
+        Token Usage Heatmap
+      </h2>
+      <p className="text-xs text-muted-foreground mb-4">Token consumption by day and hour over the last 30 days</p>
+
+      {isLoading ? (
+        <div className="h-48 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <div className="flex">
+            <div className="w-10 shrink-0" />
+            <div className="flex-1 flex">
+              {hourLabels.map((label, i) => (
+                <div key={i} className="flex-1 text-center text-[9px] text-muted-foreground/60">
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {DAY_LABELS.map((dayLabel, dayIdx) => (
+            <div key={dayIdx} className="flex items-center gap-1">
+              <div className="w-10 text-[10px] text-muted-foreground text-right pr-1 shrink-0">
+                {dayLabel}
+              </div>
+              <div className="flex-1 flex gap-[2px]">
+                {Array.from({ length: 24 }, (_, hour) => {
+                  const cell = data?.heatmap.find(c => c.day === dayIdx && c.hour === hour);
+                  const tokens = cell?.tokens || 0;
+                  return (
+                    <div
+                      key={hour}
+                      className={`flex-1 h-6 rounded-sm ${cellColor(tokens)} transition-colors cursor-default`}
+                      title={`${dayLabel} ${hour}:00 — ${tokens.toLocaleString()} tokens`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <span className="text-[9px] text-muted-foreground">Less</span>
+            <div className="flex gap-[2px]">
+              <div className="w-3 h-3 rounded-sm bg-secondary/30" />
+              <div className="w-3 h-3 rounded-sm bg-emerald-500/20" />
+              <div className="w-3 h-3 rounded-sm bg-emerald-500/40" />
+              <div className="w-3 h-3 rounded-sm bg-emerald-500/60" />
+              <div className="w-3 h-3 rounded-sm bg-amber-500/60" />
+              <div className="w-3 h-3 rounded-sm bg-red-500/60" />
+            </div>
+            <span className="text-[9px] text-muted-foreground">More</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
