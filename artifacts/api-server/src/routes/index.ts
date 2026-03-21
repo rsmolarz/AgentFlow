@@ -12,10 +12,12 @@ import integrationsRouter from "./integrations";
 import settingsRouter from "./settings";
 import promptOptimizerRouter from "./prompt-optimizer";
 import abTestsRouter from "./ab-tests";
+import searchRouter from "./search";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(searchRouter);
 router.use(agentsRouter);
 router.use(promptOptimizerRouter);
 router.use(abTestsRouter);
