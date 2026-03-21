@@ -3,3 +3,6 @@ export * from "./workflows";
 export * from "./executions";
 export * from "./knowledge-bases";
 export * from "./feature-requests";
+export * from "./evaluations";
+export * from "./integrations";
+export * from "./settings";

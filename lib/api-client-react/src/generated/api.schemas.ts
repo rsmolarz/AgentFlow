@@ -577,3 +577,102 @@ export interface FeatureRequestExport {
   exportedAt: string;
   total: number;
 }
+
+export type EvalRunStatus = (typeof EvalRunStatus)[keyof typeof EvalRunStatus];
+export const EvalRunStatus = {
+  passed: "passed",
+  failed: "failed",
+  running: "running",
+  warning: "warning",
+  pending: "pending",
+} as const;
+
+export interface EvalRunMetrics {
+  accuracy: number;
+  relevance: number;
+  coherence: number;
+  safety: number;
+}
+
+export interface EvalRun {
+  id: number;
+  name: string;
+  agentId?: number | null;
+  agentName: string;
+  status: string;
+  score: number;
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+  avgLatency: number;
+  tokenUsage: number;
+  cost: number;
+  metrics: EvalRunMetrics;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListEvalRunsParams = {
+  status?: EvalRunStatus;
+};
+
+export type CreateEvalRunBody = {
+  name: string;
+  agentId?: number;
+  agentName?: string;
+};
+
+export interface IntegrationItem {
+  id: number;
+  name: string;
+  category: string;
+  description?: string;
+  icon?: string;
+  connected: boolean;
+  popular?: boolean;
+  nodes?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListIntegrationsParams = {
+  category?: string;
+  search?: string;
+  connected?: "true" | "false";
+};
+
+export type ConnectIntegrationBody = {
+  name: string;
+  apiKey: string;
+};
+
+export type DisconnectIntegrationBody = {
+  name: string;
+};
+
+export interface CostByProvider {
+  provider: string;
+  model: string;
+  tokens: number;
+  cost: number;
+  pct: number;
+}
+
+export type ListSettingsParams = {
+  category?: string;
+};
+
+export type UpsertSettingBody = {
+  key: string;
+  value: string;
+  category?: string;
+};
+
+export interface SettingItem {
+  id: number;
+  key: string;
+  value: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}

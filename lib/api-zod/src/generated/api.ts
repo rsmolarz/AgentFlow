@@ -828,3 +828,91 @@ export const FeatureRequestExportResponse = zod.object({
   exportedAt: zod.string(),
   total: zod.number(),
 });
+
+export const ListEvalRunsQueryParams = zod.object({
+  status: zod.enum(["passed", "failed", "running", "warning", "pending"]).optional(),
+});
+
+export const CreateEvalRunBody = zod.object({
+  name: zod.string().min(1),
+  agentId: zod.number().optional(),
+  agentName: zod.string().optional(),
+});
+
+export const EvalRunResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  agentId: zod.number().nullable().optional(),
+  agentName: zod.string(),
+  status: zod.string(),
+  score: zod.number(),
+  totalTests: zod.number(),
+  passedTests: zod.number(),
+  failedTests: zod.number(),
+  avgLatency: zod.number(),
+  tokenUsage: zod.number(),
+  cost: zod.number(),
+  metrics: zod.object({
+    accuracy: zod.number(),
+    relevance: zod.number(),
+    coherence: zod.number(),
+    safety: zod.number(),
+  }),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListIntegrationsQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  connected: zod.enum(["true", "false"]).optional(),
+});
+
+export const ConnectIntegrationBody = zod.object({
+  name: zod.string().min(1),
+  apiKey: zod.string().min(1),
+});
+
+export const DisconnectIntegrationBody = zod.object({
+  name: zod.string().min(1),
+});
+
+export const IntegrationResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  connected: zod.boolean(),
+  popular: zod.boolean().optional(),
+  nodes: zod.number().optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListSettingsQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+});
+
+export const UpsertSettingBody = zod.object({
+  key: zod.string().min(1),
+  value: zod.any(),
+  category: zod.string().optional(),
+});
+
+export const SettingResponseItem = zod.object({
+  id: zod.number(),
+  key: zod.string(),
+  value: zod.any(),
+  category: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const CostByProviderResponseItem = zod.object({
+  provider: zod.string(),
+  model: zod.string(),
+  tokens: zod.number(),
+  cost: zod.number(),
+  pct: zod.number(),
+});

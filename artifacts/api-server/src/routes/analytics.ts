@@ -129,4 +129,45 @@ router.get("/analytics/execution-stats", async (req, res) => {
   }
 });
 
+router.get("/analytics/cost-by-provider", async (req, res) => {
+  try {
+    const costs = await db
+      .select({
+        provider: agentsTable.provider,
+        model: agentsTable.model,
+        tokens: sum(executionsTable.tokensUsed),
+        cost: sum(executionsTable.cost),
+      })
+      .from(executionsTable)
+      .innerJoin(workflowsTable, eq(executionsTable.workflowId, workflowsTable.id))
+      .innerJoin(agentsTable, sql`${agentsTable.provider} IS NOT NULL`)
+      .groupBy(agentsTable.provider, agentsTable.model)
+      .orderBy(sql`${sum(executionsTable.cost)} DESC`);
+
+    const totalCost = costs.reduce((s, c) => s + Number(c.cost || 0), 0);
+
+    const providerAgg: Record<string, { model: string; tokens: number; cost: number }> = {};
+    for (const c of costs) {
+      const key = c.provider;
+      if (!providerAgg[key]) {
+        providerAgg[key] = { model: c.model, tokens: 0, cost: 0 };
+      }
+      providerAgg[key].tokens += Number(c.tokens || 0);
+      providerAgg[key].cost += Number(c.cost || 0);
+    }
+
+    const result = Object.entries(providerAgg).map(([provider, data]) => ({
+      provider: provider.charAt(0).toUpperCase() + provider.slice(1),
+      model: data.model,
+      tokens: data.tokens,
+      cost: Math.round(data.cost * 100) / 100,
+      pct: totalCost > 0 ? Math.round((data.cost / totalCost) * 100) : 0,
+    }));
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;

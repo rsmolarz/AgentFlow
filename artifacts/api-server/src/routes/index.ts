@@ -7,6 +7,9 @@ import templatesRouter from "./templates";
 import knowledgeBasesRouter from "./knowledge-bases";
 import analyticsRouter from "./analytics";
 import featureRequestsRouter from "./feature-requests";
+import evaluationsRouter from "./evaluations";
+import integrationsRouter from "./integrations";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -18,5 +21,8 @@ router.use(templatesRouter);
 router.use(knowledgeBasesRouter);
 router.use(analyticsRouter);
 router.use(featureRequestsRouter);
+router.use(evaluationsRouter);
+router.use(integrationsRouter);
+router.use(settingsRouter);
 
 export default router;

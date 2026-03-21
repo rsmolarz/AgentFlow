@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useGetSettings, useUpsertSetting } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   Settings as SettingsIcon, Key, Shield, Server, Globe, Brain, Save, Plus, Trash2, Copy,
   Eye, EyeOff, CheckCircle, AlertTriangle, RefreshCw, ExternalLink, Lock, Info, HelpCircle,
@@ -69,6 +71,7 @@ function generateApiKey(): string {
 
 export default function Settings() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
   const [showApiKey, setShowApiKey] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyEntry[]>(INITIAL_API_KEYS);
@@ -77,8 +80,88 @@ export default function Settings() {
   const [newKeyScopes, setNewKeyScopes] = useState<string[]>(["read"]);
   const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null);
 
+  const { data: settings } = useGetSettings();
+  const upsertSetting = useUpsertSetting();
+
+  const [platformName, setPlatformName] = useState("AgentFlow");
+  const [defaultProvider, setDefaultProvider] = useState("openai");
+  const [defaultModel, setDefaultModel] = useState("gpt-4o");
+  const [costControlsEnabled, setCostControlsEnabled] = useState(true);
+  const [monthlyBudget, setMonthlyBudget] = useState("1000000");
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
+  const [loggingEnabled, setLoggingEnabled] = useState(true);
+  const [maxConcurrent, setMaxConcurrent] = useState("10");
+  const [execTimeout, setExecTimeout] = useState("300");
+  const [codeRuntime, setCodeRuntime] = useState("both");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (settings && !settingsLoaded) {
+      if (settings.platformName) setPlatformName(settings.platformName);
+      if (settings.defaultProvider) setDefaultProvider(settings.defaultProvider);
+      if (settings.defaultModel) setDefaultModel(settings.defaultModel);
+      if (settings.costControlsEnabled) setCostControlsEnabled(settings.costControlsEnabled === "true");
+      if (settings.monthlyBudget) setMonthlyBudget(settings.monthlyBudget);
+      if (settings.streamingEnabled) setStreamingEnabled(settings.streamingEnabled !== "false");
+      if (settings.loggingEnabled) setLoggingEnabled(settings.loggingEnabled !== "false");
+      if (settings.maxConcurrentExecutions) setMaxConcurrent(settings.maxConcurrentExecutions);
+      if (settings.executionTimeout) setExecTimeout(settings.executionTimeout);
+      if (settings.codeRuntime) setCodeRuntime(settings.codeRuntime);
+      setSettingsLoaded(true);
+    }
+  }, [settings, settingsLoaded]);
+
+  const saveSetting = (key: string, value: string, category = "general") => {
+    upsertSetting.mutate({ data: { key, value, category } }, {
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/settings"] }); },
+    });
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveMultipleSettings = async (entries: { key: string; value: string; category: string }[]) => {
+    setIsSaving(true);
+    try {
+      const results = await Promise.allSettled(
+        entries.map(entry =>
+          new Promise<void>((resolve, reject) => {
+            upsertSetting.mutate({ data: entry }, {
+              onSuccess: () => resolve(),
+              onError: (err) => reject(err),
+            });
+          })
+        )
+      );
+      const failed = results.filter(r => r.status === "rejected");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      if (failed.length > 0) {
+        toast({ title: `${failed.length} setting(s) failed to save`, variant: "destructive" });
+      } else {
+        toast({ title: "Settings saved successfully!" });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = () => {
-    toast({ title: "Settings saved successfully!" });
+    saveMultipleSettings([
+      { key: "platformName", value: platformName, category: "general" },
+      { key: "defaultProvider", value: defaultProvider, category: "general" },
+      { key: "defaultModel", value: defaultModel, category: "general" },
+      { key: "costControlsEnabled", value: String(costControlsEnabled), category: "general" },
+      { key: "monthlyBudget", value: monthlyBudget, category: "general" },
+      { key: "streamingEnabled", value: String(streamingEnabled), category: "general" },
+      { key: "loggingEnabled", value: String(loggingEnabled), category: "general" },
+    ]);
+  };
+
+  const handleSaveAdvanced = () => {
+    saveMultipleSettings([
+      { key: "maxConcurrentExecutions", value: maxConcurrent, category: "advanced" },
+      { key: "executionTimeout", value: execTimeout, category: "advanced" },
+      { key: "codeRuntime", value: codeRuntime, category: "advanced" },
+    ]);
   };
 
   return (
@@ -116,12 +199,12 @@ export default function Settings() {
                 
                 <div className="space-y-1.5">
                   <Label>Platform Name</Label>
-                  <Input defaultValue="AgentFlow" className="bg-secondary/50 border-white/10" />
+                  <Input value={platformName} onChange={e => setPlatformName(e.target.value)} className="bg-secondary/50 border-white/10" />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Default LLM Provider</Label>
-                  <Select defaultValue="openai">
+                  <Select value={defaultProvider} onValueChange={setDefaultProvider}>
                     <SelectTrigger className="bg-secondary/50 border-white/10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="openai">OpenAI</SelectItem>
@@ -133,7 +216,7 @@ export default function Settings() {
 
                 <div className="space-y-1.5">
                   <Label>Default Model</Label>
-                  <Select defaultValue="gpt-4o">
+                  <Select value={defaultModel} onValueChange={setDefaultModel}>
                     <SelectTrigger className="bg-secondary/50 border-white/10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gpt-4o">GPT-4o</SelectItem>
@@ -148,12 +231,12 @@ export default function Settings() {
                     <Label>Cost Controls</Label>
                     <p className="text-[10px] text-muted-foreground">Set monthly budget limits and get alerts when approaching thresholds</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch checked={costControlsEnabled} onCheckedChange={setCostControlsEnabled} />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Monthly Token Budget</Label>
-                  <Input type="number" defaultValue="1000000" className="bg-secondary/50 border-white/10" />
+                  <Input type="number" value={monthlyBudget} onChange={e => setMonthlyBudget(e.target.value)} className="bg-secondary/50 border-white/10" />
                   <p className="text-[10px] text-muted-foreground">Maximum tokens across all agents per month. Agent runs will be paused when limit is reached.</p>
                 </div>
 
@@ -162,7 +245,7 @@ export default function Settings() {
                     <Label>Streaming Responses</Label>
                     <p className="text-[10px] text-muted-foreground">Enable token-by-token streaming for real-time agent output</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch checked={streamingEnabled} onCheckedChange={setStreamingEnabled} />
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
@@ -170,11 +253,12 @@ export default function Settings() {
                     <Label>Execution Logging</Label>
                     <p className="text-[10px] text-muted-foreground">Log all inputs, outputs, and intermediate steps for debugging</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch checked={loggingEnabled} onCheckedChange={setLoggingEnabled} />
                 </div>
 
-                <Button onClick={handleSave} className="bg-primary text-white">
-                  <Save className="w-4 h-4 mr-2" /> Save Changes
+                <Button onClick={handleSave} disabled={isSaving} className="bg-primary text-white">
+                  {isSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
@@ -635,19 +719,19 @@ export default function Settings() {
 
                 <div className="space-y-1.5">
                   <Label>Max Concurrent Executions</Label>
-                  <Input type="number" defaultValue="10" className="bg-secondary/50 border-white/10 w-24" />
+                  <Input type="number" value={maxConcurrent} onChange={e => setMaxConcurrent(e.target.value)} className="bg-secondary/50 border-white/10 w-24" />
                   <p className="text-[10px] text-muted-foreground">Maximum number of workflows running simultaneously.</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Execution Timeout (seconds)</Label>
-                  <Input type="number" defaultValue="300" className="bg-secondary/50 border-white/10 w-24" />
+                  <Input type="number" value={execTimeout} onChange={e => setExecTimeout(e.target.value)} className="bg-secondary/50 border-white/10 w-24" />
                   <p className="text-[10px] text-muted-foreground">Maximum time for a single workflow execution before it's cancelled.</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Code Execution Runtime</Label>
-                  <Select defaultValue="both">
+                  <Select value={codeRuntime} onValueChange={setCodeRuntime}>
                     <SelectTrigger className="bg-secondary/50 border-white/10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="javascript">JavaScript only</SelectItem>
@@ -658,7 +742,7 @@ export default function Settings() {
                   <p className="text-[10px] text-muted-foreground">Languages available for Code nodes in workflows.</p>
                 </div>
 
-                <Button onClick={handleSave} className="bg-primary text-white">
+                <Button onClick={handleSaveAdvanced} className="bg-primary text-white">
                   <Save className="w-4 h-4 mr-2" /> Save Advanced Settings
                 </Button>
               </div>

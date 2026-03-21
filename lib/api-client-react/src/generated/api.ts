@@ -21,11 +21,16 @@ import type {
   Agent,
   AnalyticsOverview,
   ApplyTemplateResponse,
+  ConnectIntegrationBody,
+  CostByProvider,
   CreateAgentBody,
+  CreateEvalRunBody,
+  CreateFeatureRequestBody,
   CreateKnowledgeBaseBody,
   CreateWorkflowBody,
-  CreateFeatureRequestBody,
+  DisconnectIntegrationBody,
   Document,
+  EvalRun,
   Execution,
   ExecutionList,
   ExecutionLog,
@@ -35,14 +40,20 @@ import type {
   GetAnalyticsOverviewParams,
   GetExecutionStatsParams,
   HealthStatus,
+  IntegrationItem,
   KnowledgeBase,
   ListAgentsParams,
+  ListEvalRunsParams,
   ListExecutionsParams,
   ListFeatureRequestsParams,
+  ListIntegrationsParams,
+  ListSettingsParams,
   ListTemplatesParams,
   ListWorkflowsParams,
   RunWorkflowBody,
+  SettingItem,
   Template,
+  UpsertSettingBody,
   UpdateAgentBody,
   UpdateFeatureRequestBody,
   UpdateWorkflowBody,
@@ -2618,4 +2629,406 @@ export function useExportFeatureRequests<
   const queryOptions = getExportFeatureRequestsQueryOptions(options);
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
   return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const listEvalRuns = async (
+  params?: ListEvalRunsParams,
+  options?: RequestInit,
+): Promise<EvalRun[]> => {
+  const urlParams = new URLSearchParams();
+  if (params?.status) urlParams.append("status", params.status);
+  const query = urlParams.toString();
+  return customFetch<EvalRun[]>(`/api/evaluations${query ? `?${query}` : ""}`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEvalRunsQueryKey = (params?: ListEvalRunsParams) => {
+  return [`/api/evaluations`, ...(params ? [params] : [])] as const;
+};
+
+export const getListEvalRunsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEvalRuns>>,
+  TError = ErrorType<unknown>,
+>(params?: ListEvalRunsParams, options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listEvalRuns>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListEvalRunsQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvalRuns>>> = ({ signal }) =>
+    listEvalRuns(params, { signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEvalRuns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useListEvalRuns<
+  TData = Awaited<ReturnType<typeof listEvalRuns>>,
+  TError = ErrorType<unknown>,
+>(params?: ListEvalRunsParams, options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listEvalRuns>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEvalRunsQueryOptions(params, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const createEvalRun = async (
+  body: CreateEvalRunBody,
+  options?: RequestInit,
+): Promise<EvalRun> => {
+  return customFetch<EvalRun>(`/api/evaluations`, {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body) as any,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+};
+
+export const getCreateEvalRunMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEvalRun>>, TError, { data: CreateEvalRunBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEvalRun>>, { data: CreateEvalRunBody }> = (props) => {
+    const { data } = props ?? {};
+    return createEvalRun(data, options?.request);
+  };
+  return { mutationFn, ...mutationOptions } as UseMutationOptions<
+    Awaited<ReturnType<typeof createEvalRun>>,
+    TError,
+    { data: CreateEvalRunBody },
+    TContext
+  >;
+};
+
+export function useCreateEvalRun<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEvalRun>>, TError, { data: CreateEvalRunBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) {
+  const mutationOptions = getCreateEvalRunMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const deleteEvalRun = async (
+  id: number,
+  options?: RequestInit,
+): Promise<{ success: boolean }> => {
+  return customFetch<{ success: boolean }>(`/api/evaluations/${id}`, {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteEvalRunMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEvalRun>>, TError, { id: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEvalRun>>, { id: number }> = (props) => {
+    const { id } = props ?? {};
+    return deleteEvalRun(id, options?.request);
+  };
+  return { mutationFn, ...mutationOptions } as UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEvalRun>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+};
+
+export function useDeleteEvalRun<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEvalRun>>, TError, { id: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) {
+  const mutationOptions = getDeleteEvalRunMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const listIntegrations = async (
+  params?: ListIntegrationsParams,
+  options?: RequestInit,
+): Promise<IntegrationItem[]> => {
+  const urlParams = new URLSearchParams();
+  if (params?.category) urlParams.append("category", params.category);
+  if (params?.search) urlParams.append("search", params.search);
+  if (params?.connected) urlParams.append("connected", params.connected);
+  const query = urlParams.toString();
+  return customFetch<IntegrationItem[]>(`/api/integrations${query ? `?${query}` : ""}`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListIntegrationsQueryKey = (params?: ListIntegrationsParams) => {
+  return [`/api/integrations`, ...(params ? [params] : [])] as const;
+};
+
+export const getListIntegrationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listIntegrations>>,
+  TError = ErrorType<unknown>,
+>(params?: ListIntegrationsParams, options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listIntegrations>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListIntegrationsQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listIntegrations>>> = ({ signal }) =>
+    listIntegrations(params, { signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listIntegrations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useListIntegrations<
+  TData = Awaited<ReturnType<typeof listIntegrations>>,
+  TError = ErrorType<unknown>,
+>(params?: ListIntegrationsParams, options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listIntegrations>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListIntegrationsQueryOptions(params, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const connectIntegration = async (
+  body: ConnectIntegrationBody,
+  options?: RequestInit,
+): Promise<IntegrationItem> => {
+  return customFetch<IntegrationItem>(`/api/integrations/connect`, {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body) as any,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+};
+
+export const getConnectIntegrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof connectIntegration>>, TError, { data: ConnectIntegrationBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof connectIntegration>>, { data: ConnectIntegrationBody }> = (props) => {
+    const { data } = props ?? {};
+    return connectIntegration(data, options?.request);
+  };
+  return { mutationFn, ...mutationOptions } as UseMutationOptions<
+    Awaited<ReturnType<typeof connectIntegration>>,
+    TError,
+    { data: ConnectIntegrationBody },
+    TContext
+  >;
+};
+
+export function useConnectIntegration<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof connectIntegration>>, TError, { data: ConnectIntegrationBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) {
+  const mutationOptions = getConnectIntegrationMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const disconnectIntegration = async (
+  body: DisconnectIntegrationBody,
+  options?: RequestInit,
+): Promise<IntegrationItem> => {
+  return customFetch<IntegrationItem>(`/api/integrations/disconnect`, {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(body) as any,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+};
+
+export const getDisconnectIntegrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof disconnectIntegration>>, TError, { data: DisconnectIntegrationBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectIntegration>>, { data: DisconnectIntegrationBody }> = (props) => {
+    const { data } = props ?? {};
+    return disconnectIntegration(data, options?.request);
+  };
+  return { mutationFn, ...mutationOptions } as UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectIntegration>>,
+    TError,
+    { data: DisconnectIntegrationBody },
+    TContext
+  >;
+};
+
+export function useDisconnectIntegration<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof disconnectIntegration>>, TError, { data: DisconnectIntegrationBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) {
+  const mutationOptions = getDisconnectIntegrationMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const getCostByProvider = async (
+  options?: RequestInit,
+): Promise<CostByProvider[]> => {
+  return customFetch<CostByProvider[]>(`/api/analytics/cost-by-provider`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getCostByProviderQueryKey = () => {
+  return [`/api/analytics/cost-by-provider`] as const;
+};
+
+export const getCostByProviderQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCostByProvider>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getCostByProvider>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getCostByProviderQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCostByProvider>>> = ({ signal }) =>
+    getCostByProvider({ signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCostByProvider>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useGetCostByProvider<
+  TData = Awaited<ReturnType<typeof getCostByProvider>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getCostByProvider>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCostByProviderQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getSettings = async (
+  params?: ListSettingsParams,
+  options?: RequestInit,
+): Promise<Record<string, string>> => {
+  const urlSearchParams = new URLSearchParams();
+  if (params?.category) urlSearchParams.append("category", params.category);
+  const queryString = urlSearchParams.toString();
+  return customFetch<Record<string, string>>(`/api/settings${queryString ? `?${queryString}` : ""}`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSettingsQueryKey = (params?: ListSettingsParams) => {
+  return [`/api/settings`, ...(params ? [params] : [])] as const;
+};
+
+export const getSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSettingsParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getSettingsQueryKey(params);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettings>>> = ({ signal }) =>
+    getSettings(params, { signal, ...options?.request });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useGetSettings<
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSettingsParams,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSettingsQueryOptions(params, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const upsertSetting = async (
+  upsertSettingBody: UpsertSettingBody,
+  options?: RequestInit,
+): Promise<SettingItem> => {
+  return customFetch<SettingItem>(`/api/settings`, {
+    ...options,
+    method: "PUT",
+    body: JSON.stringify(upsertSettingBody),
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+};
+
+export const getUpsertSettingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof upsertSetting>>, TError, { data: UpsertSettingBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<Awaited<ReturnType<typeof upsertSetting>>, TError, { data: UpsertSettingBody }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertSetting>>, { data: UpsertSettingBody }> = (
+    props,
+  ) => {
+    const { data } = props ?? {};
+    return upsertSetting(data, options?.request);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useUpsertSetting<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof upsertSetting>>, TError, { data: UpsertSettingBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}) {
+  const mutationOptions = getUpsertSettingMutationOptions(options);
+  return useMutation(mutationOptions);
 }

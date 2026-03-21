@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useListAgents, useListWorkflows } from "@workspace/api-client-react";
+import { useListAgents, useListEvalRuns, useCreateEvalRun } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   FlaskConical, TrendingUp, TrendingDown, CheckCircle, XCircle, AlertTriangle,
   Play, Clock, BarChart3, Target, ArrowRight, RefreshCw, Filter, Plus,
@@ -8,55 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
-interface EvalRun {
-  id: string;
-  name: string;
-  agentName: string;
-  status: "passed" | "failed" | "running" | "warning";
-  score: number;
-  totalTests: number;
-  passedTests: number;
-  failedTests: number;
-  avgLatency: number;
-  tokenUsage: number;
-  cost: number;
-  timestamp: string;
-  metrics: { accuracy: number; relevance: number; coherence: number; safety: number };
-}
-
-const MOCK_EVAL_RUNS: EvalRun[] = [
-  {
-    id: "eval-1", name: "Customer Support Quality", agentName: "Support Agent",
-    status: "passed", score: 94.2, totalTests: 50, passedTests: 47, failedTests: 3,
-    avgLatency: 1.2, tokenUsage: 45000, cost: 0.68, timestamp: "2026-03-20T14:30:00Z",
-    metrics: { accuracy: 95, relevance: 93, coherence: 96, safety: 98 }
-  },
-  {
-    id: "eval-2", name: "Code Review Accuracy", agentName: "Code Reviewer",
-    status: "warning", score: 78.5, totalTests: 40, passedTests: 31, failedTests: 9,
-    avgLatency: 3.4, tokenUsage: 82000, cost: 1.23, timestamp: "2026-03-20T12:15:00Z",
-    metrics: { accuracy: 76, relevance: 82, coherence: 88, safety: 95 }
-  },
-  {
-    id: "eval-3", name: "Content Generation Quality", agentName: "Content Writer",
-    status: "passed", score: 91.0, totalTests: 30, passedTests: 27, failedTests: 3,
-    avgLatency: 2.1, tokenUsage: 56000, cost: 0.84, timestamp: "2026-03-19T18:00:00Z",
-    metrics: { accuracy: 89, relevance: 92, coherence: 94, safety: 97 }
-  },
-  {
-    id: "eval-4", name: "Data Analysis Precision", agentName: "Data Analyst",
-    status: "failed", score: 62.3, totalTests: 25, passedTests: 15, failedTests: 10,
-    avgLatency: 4.8, tokenUsage: 120000, cost: 1.80, timestamp: "2026-03-19T10:45:00Z",
-    metrics: { accuracy: 58, relevance: 65, coherence: 72, safety: 99 }
-  },
-  {
-    id: "eval-5", name: "Prompt Iteration v3.2", agentName: "Support Agent",
-    status: "passed", score: 96.1, totalTests: 50, passedTests: 48, failedTests: 2,
-    avgLatency: 1.1, tokenUsage: 42000, cost: 0.63, timestamp: "2026-03-18T16:30:00Z",
-    metrics: { accuracy: 97, relevance: 95, coherence: 97, safety: 99 }
-  },
-];
 
 const METRIC_THRESHOLDS = [
   { label: "Accuracy", key: "accuracy" as const, icon: Target, desc: "How correct are the agent's outputs vs expected answers" },
@@ -86,24 +38,34 @@ function ScoreRing({ score, size = 56, strokeWidth = 4 }: { score: number; size?
 
 export default function Evaluations() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: agents } = useListAgents();
+  const { data: evalRuns, isLoading } = useListEvalRuns();
+  const createEvalRun = useCreateEvalRun();
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedRun, setSelectedRun] = useState<EvalRun | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
 
-  const filteredRuns = MOCK_EVAL_RUNS.filter(r => statusFilter === "all" || r.status === statusFilter);
+  const runs = evalRuns || [];
+  const filteredRuns = runs.filter(r => statusFilter === "all" || r.status === statusFilter);
 
-  const avgScore = MOCK_EVAL_RUNS.reduce((sum, r) => sum + r.score, 0) / MOCK_EVAL_RUNS.length;
-  const totalTests = MOCK_EVAL_RUNS.reduce((sum, r) => sum + r.totalTests, 0);
-  const passRate = MOCK_EVAL_RUNS.reduce((sum, r) => sum + r.passedTests, 0) / totalTests * 100;
-  const totalCost = MOCK_EVAL_RUNS.reduce((sum, r) => sum + r.cost, 0);
+  const avgScore = runs.length > 0 ? runs.reduce((sum, r) => sum + r.score, 0) / runs.length : 0;
+  const totalTests = runs.reduce((sum, r) => sum + r.totalTests, 0);
+  const passRate = totalTests > 0 ? runs.reduce((sum, r) => sum + r.passedTests, 0) / totalTests * 100 : 0;
+  const totalCost = runs.reduce((sum, r) => sum + r.cost, 0);
 
   const handleRunEval = () => {
-    setIsRunning(true);
-    setTimeout(() => {
-      setIsRunning(false);
-      toast({ title: "Evaluation complete! 48/50 tests passed (96%)." });
-    }, 2000);
+    const agentList = agents || [];
+    const randomAgent = agentList.length > 0 ? agentList[Math.floor(Math.random() * agentList.length)] : null;
+    createEvalRun.mutate(
+      { data: { name: `Evaluation Run ${new Date().toLocaleDateString()}`, agentName: randomAgent?.name || "Default Agent", agentId: randomAgent?.id } },
+      {
+        onSuccess: (newRun) => {
+          queryClient.invalidateQueries({ queryKey: ["/api/evaluations"] });
+          toast({ title: `Evaluation complete! ${newRun.passedTests}/${newRun.totalTests} tests passed (${newRun.score.toFixed(1)}%).` });
+        },
+        onError: () => { toast({ title: "Failed to run evaluation", variant: "destructive" }); },
+      }
+    );
   };
 
   return (
@@ -113,8 +75,8 @@ export default function Evaluations() {
           <h1 className="text-3xl font-display font-bold text-gradient">Evaluations</h1>
           <p className="text-muted-foreground mt-1">Test agents, monitor quality drift, and iterate on prompts with data-driven insights.</p>
         </div>
-        <Button onClick={handleRunEval} disabled={isRunning} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25">
-          {isRunning ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running...</> : <><Play className="w-4 h-4 mr-2" /> Run Evaluation</>}
+        <Button onClick={handleRunEval} disabled={createEvalRun.isPending} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25">
+          {createEvalRun.isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running...</> : <><Play className="w-4 h-4 mr-2" /> Run Evaluation</>}
         </Button>
       </div>
 
@@ -125,46 +87,59 @@ export default function Evaluations() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-border bg-card/60 p-4">
-          <p className="text-xs text-muted-foreground mb-1">Avg Quality Score</p>
-          <p className="text-2xl font-bold text-emerald-400">{avgScore.toFixed(1)}%</p>
-          <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><TrendingUp className="w-3 h-3 text-emerald-400" /> +2.3% from last week</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card/60 p-4">
-          <p className="text-xs text-muted-foreground mb-1">Total Tests Run</p>
-          <p className="text-2xl font-bold">{totalTests}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">Across {MOCK_EVAL_RUNS.length} eval runs</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card/60 p-4">
-          <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
-          <p className="text-2xl font-bold text-blue-400">{passRate.toFixed(1)}%</p>
-          <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><TrendingUp className="w-3 h-3 text-emerald-400" /> +1.5% improvement</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card/60 p-4">
-          <p className="text-xs text-muted-foreground mb-1">Eval Cost</p>
-          <p className="text-2xl font-bold text-amber-400">${totalCost.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">{MOCK_EVAL_RUNS.reduce((s, r) => s + r.tokenUsage, 0).toLocaleString()} tokens used</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        {METRIC_THRESHOLDS.map(metric => {
-          const avg = MOCK_EVAL_RUNS.reduce((sum, r) => sum + r.metrics[metric.key], 0) / MOCK_EVAL_RUNS.length;
-          return (
-            <div key={metric.key} className="rounded-xl border border-border bg-card/60 p-4 flex items-center gap-3">
-              <ScoreRing score={avg} />
-              <div>
-                <p className="text-sm font-medium flex items-center gap-1.5">
-                  <metric.icon className="w-3.5 h-3.5 text-muted-foreground" />
-                  {metric.label}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{metric.desc}</p>
-              </div>
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="rounded-xl border border-border bg-card/60 p-4 animate-pulse">
+              <div className="h-3 bg-secondary rounded w-20 mb-2" />
+              <div className="h-6 bg-secondary rounded w-16" />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-border bg-card/60 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Avg Quality Score</p>
+              <p className="text-2xl font-bold text-emerald-400">{avgScore.toFixed(1)}%</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Across {runs.length} eval runs</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/60 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Total Tests Run</p>
+              <p className="text-2xl font-bold">{totalTests}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Across {runs.length} eval runs</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/60 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
+              <p className="text-2xl font-bold text-blue-400">{passRate.toFixed(1)}%</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{runs.filter(r => r.status === 'passed').length} passed runs</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/60 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Eval Cost</p>
+              <p className="text-2xl font-bold text-amber-400">${totalCost.toFixed(2)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{runs.reduce((s, r) => s + r.tokenUsage, 0).toLocaleString()} tokens used</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {METRIC_THRESHOLDS.map(metric => {
+              const avg = runs.length > 0 ? runs.reduce((sum, r) => sum + (r.metrics?.[metric.key] || 0), 0) / runs.length : 0;
+              return (
+                <div key={metric.key} className="rounded-xl border border-border bg-card/60 p-4 flex items-center gap-3">
+                  <ScoreRing score={avg} />
+                  <div>
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <metric.icon className="w-3.5 h-3.5 text-muted-foreground" />
+                      {metric.label}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{metric.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -188,16 +163,15 @@ export default function Evaluations() {
 
       <div className="space-y-3">
         {filteredRuns.map(run => (
-          <div 
+          <div
             key={run.id}
-            onClick={() => setSelectedRun(selectedRun?.id === run.id ? null : run)}
+            onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
             className={`rounded-xl border p-4 cursor-pointer transition-all hover:border-primary/30 ${
-              selectedRun?.id === run.id ? 'border-primary/40 bg-primary/5' : 'border-white/5 bg-secondary/20'
+              selectedRunId === run.id ? 'border-primary/40 bg-primary/5' : 'border-white/5 bg-secondary/20'
             }`}
           >
             <div className="flex items-center gap-4">
               <ScoreRing score={run.score} size={48} />
-              
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-sm">{run.name}</h3>
@@ -215,20 +189,18 @@ export default function Evaluations() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Agent: {run.agentName} &middot; {run.passedTests}/{run.totalTests} tests passed &middot; {new Date(run.timestamp).toLocaleDateString()}
+                  Agent: {run.agentName} &middot; {run.passedTests}/{run.totalTests} tests passed &middot; {new Date(run.createdAt).toLocaleDateString()}
                 </p>
               </div>
-
               <div className="hidden sm:flex items-center gap-6 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1" title="Average latency"><Clock className="w-3 h-3" /> {run.avgLatency}s</span>
                 <span className="flex items-center gap-1" title="Tokens used"><Zap className="w-3 h-3" /> {(run.tokenUsage / 1000).toFixed(0)}k</span>
                 <span className="flex items-center gap-1" title="Cost"><span>$</span>{run.cost.toFixed(2)}</span>
               </div>
-
-              <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${selectedRun?.id === run.id ? 'rotate-90' : ''}`} />
+              <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${selectedRunId === run.id ? 'rotate-90' : ''}`} />
             </div>
 
-            {selectedRun?.id === run.id && (
+            {selectedRunId === run.id && run.metrics && (
               <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {METRIC_THRESHOLDS.map(metric => (
                   <div key={metric.key} className="flex items-center gap-2">
@@ -245,7 +217,7 @@ export default function Evaluations() {
         ))}
       </div>
 
-      {filteredRuns.length === 0 && (
+      {!isLoading && filteredRuns.length === 0 && (
         <div className="text-center py-16">
           <FlaskConical className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-40" />
           <h3 className="text-lg font-semibold mb-1">No evaluation runs found</h3>

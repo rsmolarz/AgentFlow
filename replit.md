@@ -89,6 +89,11 @@ All routes mounted under `/api`:
 - `GET /api/feature-requests/export/json` - Export all feature requests as JSON
 - `GET/PUT/DELETE /api/feature-requests/:id` - Feature request CRUD
 - `POST /api/feature-requests/:id/vote` - Upvote a feature request
+- `GET/POST /api/evaluations` - List/create evaluation runs (filter by status)
+- `GET/POST /api/integrations` - List integrations, connect/disconnect with API key
+- `GET/PUT /api/settings` - Get all settings (key-value), upsert setting
+- `GET/DELETE /api/settings/:key` - Get/delete individual setting
+- `GET /api/analytics/cost-by-provider` - Cost breakdown by LLM provider
 
 ## Database Schema
 
@@ -99,8 +104,13 @@ Tables in `lib/db/src/schema/`:
 - `knowledgeBases` - Knowledge base metadata with document/chunk counts
 - `documents` - Documents belonging to knowledge bases
 - `featureRequests` - Feature requests with title, description, category, priority, status, votes
+- `evalRuns` - Evaluation runs with scores, metrics (accuracy/relevance/coherence/safety), cost, token usage
+- `integrations` - Third-party integrations with connect/disconnect state, categories, API key storage
+- `settings` - Key-value settings store with categories (general, advanced, security, etc.)
 
-Seed script: `pnpm --filter @workspace/scripts run seed`
+Seed scripts:
+- `pnpm --filter @workspace/scripts run seed` (agents, workflows, executions, knowledge bases, templates)
+- `pnpm --filter @workspace/scripts run seed-new` (integrations + eval runs)
 
 ## Important Notes
 

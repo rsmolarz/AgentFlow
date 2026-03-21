@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGetAnalyticsOverview, useGetExecutionStats, useListExecutions, useListAgents, useListWorkflows } from "@workspace/api-client-react";
+import { useGetAnalyticsOverview, useGetExecutionStats, useListExecutions, useListAgents, useListWorkflows, useGetCostByProvider } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { 
   Bot, Workflow, ActivitySquare, CheckCircle, XCircle, Clock, Zap, TrendingUp, TrendingDown, ArrowRight, 
@@ -176,6 +176,7 @@ export default function Dashboard() {
   const { data: executions } = useListExecutions({ limit: 8 });
   const { data: agents } = useListAgents();
   const { data: workflows } = useListWorkflows();
+  const { data: costByProvider } = useGetCostByProvider();
 
   const successRate = overview && overview.totalExecutions > 0
     ? ((overview.successfulExecutions / overview.totalExecutions) * 100).toFixed(1)
@@ -401,21 +402,28 @@ export default function Dashboard() {
             Cost Breakdown by Provider
           </h2>
           <div className="space-y-3">
-            {[
-              { provider: "OpenAI", model: "GPT-4o", tokens: 245000, cost: 3.68, pct: 52, color: "bg-emerald-500" },
-              { provider: "Anthropic", model: "Claude 3.5 Sonnet", tokens: 156000, cost: 2.34, pct: 33, color: "bg-blue-500" },
-              { provider: "Google", model: "Gemini 1.5 Pro", tokens: 67000, cost: 0.67, pct: 15, color: "bg-amber-500" },
-            ].map(p => (
-              <div key={p.provider} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{p.provider} <span className="text-muted-foreground font-normal text-xs">({p.model})</span></span>
-                  <span className="text-xs text-muted-foreground">${p.cost.toFixed(2)} &middot; {(p.tokens / 1000).toFixed(0)}k tokens</span>
-                </div>
-                <div className="w-full bg-secondary/50 rounded-full h-2">
-                  <div className={`${p.color} rounded-full h-2 transition-all`} style={{ width: `${p.pct}%` }} />
-                </div>
+            {costByProvider && costByProvider.length > 0 ? (
+              costByProvider.map((p, i) => {
+                const colors = ["bg-emerald-500", "bg-blue-500", "bg-amber-500", "bg-purple-500", "bg-red-500"];
+                return (
+                  <div key={p.provider} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{p.provider} <span className="text-muted-foreground font-normal text-xs">({p.model})</span></span>
+                      <span className="text-xs text-muted-foreground">${p.cost.toFixed(2)} &middot; {(p.tokens / 1000).toFixed(0)}k tokens</span>
+                    </div>
+                    <div className="w-full bg-secondary/50 rounded-full h-2">
+                      <div className={`${colors[i % colors.length]} rounded-full h-2 transition-all`} style={{ width: `${p.pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No cost data yet</p>
+                <p className="text-xs mt-1">Run workflows to see cost breakdown by provider</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
