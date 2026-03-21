@@ -22,6 +22,7 @@ import {
   GitCompareArrows,
   FileSpreadsheet,
   Webhook,
+  BookOpen,
   Sun,
   Moon
 } from "lucide-react";
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { icon: GitCompareArrows, label: "A/B Testing", href: "/ab-testing" },
   { icon: FileSpreadsheet, label: "Bulk Execution", href: "/bulk-execution" },
   { icon: Webhook, label: "Webhooks", href: "/webhooks" },
+  { icon: BookOpen, label: "Prompts", href: "/prompts" },
   { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
   { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
 ];

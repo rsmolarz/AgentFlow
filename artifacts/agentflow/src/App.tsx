@@ -22,6 +22,7 @@ import Leaderboard from "./pages/leaderboard";
 import ABTesting from "./pages/ab-testing";
 import BulkExecution from "./pages/bulk-execution";
 import Webhooks from "./pages/webhooks";
+import Prompts from "./pages/prompts";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -83,6 +84,9 @@ function Router() {
       </Route>
       <Route path="/webhooks">
         <Layout><Webhooks /></Layout>
+      </Route>
+      <Route path="/prompts">
+        <Layout><Prompts /></Layout>
       </Route>
 
       <Route component={NotFound} />

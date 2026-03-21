@@ -16,6 +16,7 @@ import searchRouter from "./search";
 import schedulesRouter from "./schedules";
 import webhooksRouter from "./webhooks";
 import costAlertsRouter from "./cost-alerts";
+import promptsRouter from "./prompts";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(settingsRouter);
 router.use(schedulesRouter);
 router.use(webhooksRouter);
 router.use(costAlertsRouter);
+router.use(promptsRouter);
 
 export default router;
