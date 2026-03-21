@@ -73,4 +73,47 @@ Generate an improved, production-quality version of this system prompt that will
   }
 });
 
+router.post("/agents/suggest-names", async (req, res) => {
+  try {
+    const { role, goal, provider, tools } = req.body || {};
+
+    const context = [
+      role ? `Role/Prompt: ${role}` : "",
+      goal ? `Goal: ${goal}` : "",
+      provider ? `Provider: ${provider}` : "",
+      tools?.length ? `Tools: ${tools.join(", ")}` : "",
+    ].filter(Boolean).join("\n");
+
+    const result = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.9,
+      max_tokens: 200,
+      messages: [
+        {
+          role: "system",
+          content: "You are a creative naming assistant. Generate 5 short, catchy agent names. Each name should be 1-3 words, professional but memorable. Return ONLY a JSON array of strings, nothing else.",
+        },
+        {
+          role: "user",
+          content: context.trim()
+            ? `Suggest 5 names for an AI agent with these details:\n${context}`
+            : "Suggest 5 creative names for a general-purpose AI agent.",
+        },
+      ],
+    });
+
+    const raw = result.choices[0]?.message?.content?.trim() || "[]";
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+    const names: string[] = JSON.parse(cleaned);
+
+    res.json({
+      names: names.slice(0, 5),
+      tokensUsed: result.usage?.total_tokens || 0,
+    });
+  } catch (error: any) {
+    console.error("Name suggestion error:", error);
+    res.status(500).json({ error: error.message || "Failed to suggest names" });
+  }
+});
+
 export default router;

@@ -460,6 +460,32 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedPrompt, setOptimizedPrompt] = useState<string | null>(null);
   const [showDiff, setShowDiff] = useState(false);
+  const [isSuggestingNames, setIsSuggestingNames] = useState(false);
+  const [suggestedNames, setSuggestedNames] = useState<string[]>([]);
+
+  const handleSuggestNames = async () => {
+    setIsSuggestingNames(true);
+    setSuggestedNames([]);
+    try {
+      const resp = await fetch(`${API_BASE}/api/agents/suggest-names`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: formData.role || undefined,
+          goal: formData.goal || undefined,
+          provider: formData.provider,
+          tools: selectedTools,
+        }),
+      });
+      if (!resp.ok) throw new Error("Failed to suggest names");
+      const data = await resp.json();
+      setSuggestedNames(data.names || []);
+    } catch (err: any) {
+      toast({ title: "Failed to suggest names", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSuggestingNames(false);
+    }
+  };
 
   const handleOptimizePrompt = async () => {
     if (!formData.role.trim()) {
@@ -543,13 +569,40 @@ function CreateAgentForm({ onSuccess }: { onSuccess: () => void }) {
           Agent Name
           <span className="text-red-400">*</span>
         </Label>
-        <Input 
-          required 
-          placeholder="e.g. Data Analyst, Content Writer, Code Reviewer"
-          value={formData.name}
-          onChange={e => setFormData({...formData, name: e.target.value})}
-          className="bg-secondary/50 border-white/10"
-        />
+        <div className="flex gap-2">
+          <Input 
+            required 
+            placeholder="e.g. Data Analyst, Content Writer, Code Reviewer"
+            value={formData.name}
+            onChange={e => setFormData({...formData, name: e.target.value})}
+            className="bg-secondary/50 border-white/10 flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSuggestNames}
+            disabled={isSuggestingNames}
+            className="text-xs gap-1 shrink-0"
+          >
+            {isSuggestingNames ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            Suggest
+          </Button>
+        </div>
+        {suggestedNames.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {suggestedNames.map((name, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => { setFormData({...formData, name}); setSuggestedNames([]); }}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="text-[10px] text-muted-foreground">Give your agent a clear, descriptive name so you can easily identify it in workflows.</p>
       </div>
 
