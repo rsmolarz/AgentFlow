@@ -34,7 +34,7 @@ import {
   DollarSign,
   Users,
   MessageSquare,
-  ScrollText,
+  ChevronDown,
   CheckCircle2,
   XCircle,
   Info,
@@ -43,33 +43,73 @@ import {
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 
-const NAV_ITEMS = [
+interface NavItem {
+  icon: typeof Info;
+  label: string;
+  href: string;
+  highlight?: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const MAIN_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Wand2, label: "AI Builder", href: "/ai-builder", highlight: true },
   { icon: Bot, label: "Agents", href: "/agents" },
   { icon: Workflow, label: "Workflows", href: "/workflows" },
   { icon: ActivitySquare, label: "Executions", href: "/executions" },
-  { icon: FlaskConical, label: "Evaluations", href: "/evaluations" },
-  { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
-  { icon: Plug, label: "Integrations", href: "/integrations" },
-  { icon: Blocks, label: "Templates", href: "/templates" },
-  { icon: GitCompareArrows, label: "A/B Testing", href: "/ab-testing" },
-  { icon: FileSpreadsheet, label: "Bulk Execution", href: "/bulk-execution" },
-  { icon: Webhook, label: "Webhooks", href: "/webhooks" },
-  { icon: BookOpen, label: "Prompts", href: "/prompts" },
-  { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
-  { icon: Shield, label: "Audit Log", href: "/audit-log" },
-  { icon: Bell, label: "Notifications", href: "/notifications" },
-  { icon: Sparkles, label: "Agent Presets", href: "/agent-presets" },
-  { icon: Brain, label: "Memory Viewer", href: "/memory-viewer" },
-  { icon: Gauge, label: "Rate Limits", href: "/rate-limits" },
-  { icon: Bug, label: "Debug Trace", href: "/debug-trace" },
-  { icon: ShieldCheck, label: "Output Validation", href: "/output-validation" },
-  { icon: Sparkles, label: "Workflow Refiner", href: "/workflow-refiner" },
-  { icon: DollarSign, label: "Cost Optimizer", href: "/cost-optimizer" },
-  { icon: Users, label: "Team Workspaces", href: "/team-workspaces" },
-  { icon: MessageSquare, label: "Slack Notifications", href: "/slack-config" },
-  { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
+];
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Build & Test",
+    items: [
+      { icon: FlaskConical, label: "Evaluations", href: "/evaluations" },
+      { icon: GitCompareArrows, label: "A/B Testing", href: "/ab-testing" },
+      { icon: FileSpreadsheet, label: "Bulk Execution", href: "/bulk-execution" },
+      { icon: BookOpen, label: "Prompts", href: "/prompts" },
+      { icon: Sparkles, label: "Agent Presets", href: "/agent-presets" },
+      { icon: Blocks, label: "Templates", href: "/templates" },
+      { icon: Sparkles, label: "Workflow Refiner", href: "/workflow-refiner" },
+    ],
+  },
+  {
+    label: "Observe",
+    items: [
+      { icon: Shield, label: "Audit Log", href: "/audit-log" },
+      { icon: Bug, label: "Debug Trace", href: "/debug-trace" },
+      { icon: ShieldCheck, label: "Output Validation", href: "/output-validation" },
+      { icon: Brain, label: "Memory Viewer", href: "/memory-viewer" },
+      { icon: Gauge, label: "Rate Limits", href: "/rate-limits" },
+      { icon: DollarSign, label: "Cost Optimizer", href: "/cost-optimizer" },
+      { icon: Bell, label: "Notifications", href: "/notifications" },
+    ],
+  },
+  {
+    label: "Connect",
+    items: [
+      { icon: Plug, label: "Integrations", href: "/integrations" },
+      { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
+      { icon: Webhook, label: "Webhooks", href: "/webhooks" },
+      { icon: MessageSquare, label: "Slack", href: "/slack-config" },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      { icon: Users, label: "Workspaces", href: "/team-workspaces" },
+      { icon: Trophy, label: "Leaderboard", href: "/leaderboard" },
+      { icon: Lightbulb, label: "Feature Requests", href: "/feature-requests" },
+    ],
+  },
+];
+
+const ALL_NAV_ITEMS: NavItem[] = [
+  ...MAIN_ITEMS,
+  ...NAV_GROUPS.flatMap(g => g.items),
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -80,6 +120,74 @@ const notifTypeIcons: Record<string, { icon: typeof Info; color: string }> = {
   warning: { icon: AlertTriangle, color: "text-amber-400" },
   info: { icon: Info, color: "text-blue-400" },
 };
+
+function NavLink({ item, location, onClick }: { item: NavItem; location: string; onClick?: () => void }) {
+  const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+  const isHighlight = item.highlight && !isActive;
+  return (
+    <Link href={item.href} className="block" onClick={onClick}>
+      <div className={`
+        flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group relative
+        ${isActive ? 'text-primary-foreground' : isHighlight ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
+      `}>
+        {isActive && (
+          <motion.div 
+            layoutId="sidebar-active" 
+            className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 rounded-xl -z-10"
+            initial={false}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          />
+        )}
+        {isHighlight && (
+          <div className="absolute inset-0 border border-primary/30 bg-primary/5 rounded-xl -z-10" />
+        )}
+        <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : isHighlight ? 'text-primary' : 'group-hover:text-primary transition-colors'}`} />
+        <span className="font-medium text-sm">{item.label}</span>
+        {isHighlight && <span className="ml-auto text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase">New</span>}
+      </div>
+    </Link>
+  );
+}
+
+function CollapsibleGroup({ group, location }: { group: NavGroup; location: string }) {
+  const hasActiveChild = group.items.some(
+    item => location === item.href || (item.href !== "/" && location.startsWith(item.href))
+  );
+  const [open, setOpen] = useState(hasActiveChild);
+
+  useEffect(() => {
+    if (hasActiveChild && !open) setOpen(true);
+  }, [hasActiveChild]);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+      >
+        <span>{group.label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-0.5 pb-1">
+              {group.items.map(item => (
+                <NavLink key={item.href} item={item} location={location} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -119,9 +227,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-primary/30">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card/40 backdrop-blur-sm z-20">
-        <div className="h-16 flex items-center px-6 border-b border-border">
+      <aside className="hidden md:flex w-60 flex-col border-r border-border bg-card/40 backdrop-blur-sm z-20">
+        <div className="h-16 flex items-center px-5 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
               <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="AgentFlow" className="w-6 h-6 object-contain" />
@@ -130,51 +237,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         
-        <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            const isHighlight = (item as any).highlight && !isActive;
-            return (
-              <Link key={item.href} href={item.href} className="block">
-                <div className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative
-                  ${isActive ? 'text-primary-foreground' : isHighlight ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
-                `}>
-                  {isActive && (
-                    <motion.div 
-                      layoutId="sidebar-active" 
-                      className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 rounded-xl -z-10"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  {isHighlight && (
-                    <div className="absolute inset-0 border border-primary/30 bg-primary/5 rounded-xl -z-10" />
-                  )}
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : isHighlight ? 'text-primary' : 'group-hover:text-primary transition-colors'}`} />
-                  <span className="font-medium">{item.label}</span>
-                  {isHighlight && <span className="ml-auto text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase">New</span>}
-                </div>
-              </Link>
-            );
-          })}
+        <div className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {MAIN_ITEMS.map(item => (
+            <NavLink key={item.href} item={item} location={location} />
+          ))}
+
+          <div className="pt-2">
+            {NAV_GROUPS.map(group => (
+              <CollapsibleGroup key={group.label} group={group} location={location} />
+            ))}
+          </div>
         </div>
         
-        <div className="p-4 border-t border-border">
+        <div className="p-3 border-t border-border">
           <Link href="/settings" className="block">
-            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all w-full ${
+            <div className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all w-full ${
               location === '/settings' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
             }`}>
-              <Settings className="w-5 h-5" />
-              <span className="font-medium">Settings</span>
+              <Settings className="w-4 h-4" />
+              <span className="font-medium text-sm">Settings</span>
             </div>
           </Link>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 z-10 relative">
-        {/* Top Header */}
         <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center md:hidden">
             <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
@@ -249,7 +336,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Content */}
         <div className="flex-1 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
@@ -266,7 +352,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
@@ -274,30 +359,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            className="relative w-64 max-w-sm bg-card h-full flex flex-col border-r border-border p-6"
+            className="relative w-64 max-w-sm bg-card h-full flex flex-col border-r border-border p-6 overflow-y-auto"
           >
             <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={() => setIsMobileMenuOpen(false)}>
               <X className="w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                   <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="AgentFlow" className="w-6 h-6" />
                </div>
                <span className="font-display font-bold text-xl">AgentFlow</span>
             </div>
-            <div className="flex flex-col gap-2">
-              {NAV_ITEMS.map((item) => (
+            <div className="flex flex-col gap-1">
+              {ALL_NAV_ITEMS.map((item) => (
                 <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground">
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground">
+                    <item.icon className="w-4 h-4" />
+                    <span className="font-medium text-sm">{item.label}</span>
                   </div>
                 </Link>
               ))}
               <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
-                <div className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground mt-4 pt-4 border-t border-border">
-                  <Settings className="w-5 h-5" />
-                  <span className="font-medium">Settings</span>
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground mt-3 pt-3 border-t border-border">
+                  <Settings className="w-4 h-4" />
+                  <span className="font-medium text-sm">Settings</span>
                 </div>
               </Link>
             </div>
