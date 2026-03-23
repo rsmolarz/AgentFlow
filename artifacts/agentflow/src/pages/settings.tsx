@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useGetSettings, useUpsertSetting } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   Settings as SettingsIcon, Key, Shield, Server, Globe, Brain, Save, Plus, Trash2, Copy,
   Eye, EyeOff, CheckCircle, AlertTriangle, RefreshCw, ExternalLink, Lock, Info, HelpCircle,
   Webhook, Cpu, Layers, Users, Bell, Palette, Code2, Terminal, DollarSign, TrendingUp,
-  RotateCcw, Loader2
+  RotateCcw, Loader2, Fingerprint, ShieldCheck, XCircle, Usb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,38 +48,24 @@ const PROVIDERS: Provider[] = [
   { id: "together", name: "Together AI", icon: "🔗", configured: false, models: ["llama-3.1-405b", "qwen-2-72b"] },
 ];
 
-interface ApiKeyEntry {
-  id: string;
-  name: string;
-  key: string;
-  created: string;
-  lastUsed: string;
-  scopes: string[];
-}
-
-const INITIAL_API_KEYS: ApiKeyEntry[] = [
-  { id: "key-1", name: "Production API Key", key: "af_prod_sk_a1b2c3d4e5f6g7h8", created: "2026-01-15", lastUsed: "2026-03-20", scopes: ["read", "write", "execute"] },
-  { id: "key-2", name: "Development Key", key: "af_dev_sk_x9y8z7w6v5u4t3s2", created: "2026-02-20", lastUsed: "2026-03-19", scopes: ["read", "write"] },
-  { id: "key-3", name: "Webhook Integration", key: "af_wh_sk_m1n2o3p4q5r6s7t8", created: "2026-03-01", lastUsed: "2026-03-18", scopes: ["execute"] },
-];
-
-function generateApiKey(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "af_sk_";
-  for (let i = 0; i < 32; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
-}
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
-  const [showApiKey, setShowApiKey] = useState<string | null>(null);
-  const [apiKeys, setApiKeys] = useState<ApiKeyEntry[]>(INITIAL_API_KEYS);
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyScopes, setNewKeyScopes] = useState<string[]>(["read"]);
   const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null);
+  const [dbApiKeys, setDbApiKeys] = useState<any[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(false);
+  const [yubiKeyRegistered, setYubiKeyRegistered] = useState(false);
+  const [webauthnCreds, setWebauthnCreds] = useState<any[]>([]);
+  const [revealingKeyId, setRevealingKeyId] = useState<number | null>(null);
+  const [yubiKeyVerifying, setYubiKeyVerifying] = useState(false);
+  const [revealedKeyHash, setRevealedKeyHash] = useState<{ id: number; hash: string } | null>(null);
+  const [registeringYubiKey, setRegisteringYubiKey] = useState(false);
 
   const { data: settings } = useGetSettings();
   const upsertSetting = useUpsertSetting();
@@ -95,6 +81,187 @@ export default function Settings() {
   const [execTimeout, setExecTimeout] = useState("300");
   const [codeRuntime, setCodeRuntime] = useState("both");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  const fetchApiKeys = useCallback(() => {
+    setLoadingKeys(true);
+    fetch(`${API_BASE}/api/api-keys`)
+      .then(r => r.json())
+      .then(d => { setDbApiKeys(Array.isArray(d) ? d : []); })
+      .catch(() => {})
+      .finally(() => setLoadingKeys(false));
+  }, []);
+
+  const fetchWebauthnCreds = useCallback(() => {
+    fetch(`${API_BASE}/api/webauthn/credentials`)
+      .then(r => r.json())
+      .then(d => {
+        const creds = Array.isArray(d) ? d : [];
+        setWebauthnCreds(creds);
+        setYubiKeyRegistered(creds.length > 0);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "api" || activeTab === "security") {
+      fetchApiKeys();
+      fetchWebauthnCreds();
+    }
+  }, [activeTab, fetchApiKeys, fetchWebauthnCreds]);
+
+  const handleCreateApiKey = async () => {
+    if (!newKeyName.trim() || newKeyScopes.length === 0) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/api-keys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newKeyName.trim(), scopes: newKeyScopes }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Create failed"); }
+      const data = await res.json();
+      if (data.rawKey) {
+        setJustCreatedKey(data.rawKey);
+        toast({ title: `API key "${newKeyName}" created!` });
+        fetchApiKeys();
+      }
+    } catch {
+      toast({ title: "Failed to create API key", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteApiKey = async (id: number, name: string) => {
+    if (!confirm(`Delete API key "${name}"? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/api-keys/${id}`, { method: "DELETE" });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Delete failed"); }
+      toast({ title: `API key "${name}" deleted.` });
+      fetchApiKeys();
+      if (revealedKeyHash?.id === id) setRevealedKeyHash(null);
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to delete key", variant: "destructive" });
+    }
+  };
+
+  const handleRevokeApiKey = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/api-keys/${id}/revoke`, { method: "POST" });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Revoke failed"); }
+      toast({ title: "API key revoked" });
+      fetchApiKeys();
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to revoke key", variant: "destructive" });
+    }
+  };
+
+  const handleRegisterYubiKey = async () => {
+    setRegisteringYubiKey(true);
+    try {
+      const optionsRes = await fetch(`${API_BASE}/api/webauthn/register-options`, { method: "POST" });
+      const optionsData = await optionsRes.json();
+      if (!optionsData.publicKey) throw new Error("Failed to get registration options");
+
+      const pubKey = optionsData.publicKey;
+      const b64urlDecode = (s: string) => {
+        let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+        while (b64.length % 4) b64 += "=";
+        return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      };
+      pubKey.challenge = b64urlDecode(pubKey.challenge);
+      pubKey.user.id = b64urlDecode(pubKey.user.id);
+
+      const credential = await navigator.credentials.create({ publicKey: pubKey }) as PublicKeyCredential;
+      if (!credential) throw new Error("Registration cancelled");
+
+      const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+      const regRes = await fetch(`${API_BASE}/api/webauthn/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: optionsData.sessionId,
+          credential: { id: credentialId, publicKey: credentialId, deviceName: "YubiKey" },
+        }),
+      });
+      const regData = await regRes.json();
+      if (regData.success) {
+        toast({ title: "YubiKey registered successfully!" });
+        fetchWebauthnCreds();
+      } else {
+        throw new Error("Registration failed");
+      }
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        toast({ title: err.message || "YubiKey registration failed", variant: "destructive" });
+      }
+    } finally {
+      setRegisteringYubiKey(false);
+    }
+  };
+
+  const handleYubiKeyAuth = async (apiKeyId: number) => {
+    setRevealingKeyId(apiKeyId);
+    setYubiKeyVerifying(true);
+    try {
+      const optionsRes = await fetch(`${API_BASE}/api/webauthn/auth-options`, { method: "POST" });
+      const optionsData = await optionsRes.json();
+      if (optionsData.error) throw new Error(optionsData.error);
+
+      const pubKey = optionsData.publicKey;
+      const b64urlDecode = (s: string) => {
+        let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+        while (b64.length % 4) b64 += "=";
+        return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      };
+      pubKey.challenge = b64urlDecode(pubKey.challenge);
+      pubKey.allowCredentials = pubKey.allowCredentials.map((c: any) => ({
+        ...c,
+        id: b64urlDecode(c.id),
+      }));
+
+      const assertion = await navigator.credentials.get({ publicKey: pubKey }) as PublicKeyCredential;
+      if (!assertion) throw new Error("Authentication cancelled");
+
+      const credentialId = btoa(String.fromCharCode(...new Uint8Array(assertion.rawId)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+      const authRes = await fetch(`${API_BASE}/api/webauthn/authenticate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: optionsData.sessionId,
+          credential: { id: credentialId },
+          apiKeyId,
+        }),
+      });
+      const authData = await authRes.json();
+      if (authData.success && authData.apiKey) {
+        setRevealedKeyHash({ id: apiKeyId, hash: authData.apiKey.keyHash });
+        toast({ title: "YubiKey verified — key hash revealed" });
+      } else {
+        throw new Error("Verification failed");
+      }
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        toast({ title: err.message || "YubiKey authentication failed", variant: "destructive" });
+      }
+    } finally {
+      setYubiKeyVerifying(false);
+      setRevealingKeyId(null);
+    }
+  };
+
+  const handleDeleteWebauthnCred = async (id: number) => {
+    if (!confirm("Remove this YubiKey? You will need to register a new one for key protection.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/webauthn/credentials/${id}`, { method: "DELETE" });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Delete failed"); }
+      toast({ title: "YubiKey removed" });
+      fetchWebauthnCreds();
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to remove YubiKey", variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (settings && !settingsLoaded) {
@@ -507,12 +674,34 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">API Keys</h2>
-                  <p className="text-sm text-muted-foreground">Manage API keys for external access to AgentFlow.</p>
+                  <p className="text-sm text-muted-foreground">Manage API keys for external access to AgentFlow. Keys are shown once on creation — viewing the hash again requires YubiKey authentication.</p>
                 </div>
                 <Button className="bg-primary text-white" size="sm" onClick={() => { setShowCreateKey(true); setNewKeyName(""); setNewKeyScopes(["read"]); setJustCreatedKey(null); }}>
                   <Plus className="w-4 h-4 mr-1" /> Create Key
                 </Button>
               </div>
+
+              {yubiKeyRegistered && (
+                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs text-emerald-400 font-medium">YubiKey protection active — {webauthnCreds.length} key(s) registered</span>
+                </div>
+              )}
+
+              {!yubiKeyRegistered && (
+                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-amber-300 font-medium">No YubiKey registered</p>
+                    <p className="text-[10px] text-amber-400/70">Register a YubiKey to enable hardware-protected access to your API key hashes.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                    onClick={handleRegisterYubiKey} disabled={registeringYubiKey}>
+                    {registeringYubiKey ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Usb className="w-3 h-3 mr-1" />}
+                    Register YubiKey
+                  </Button>
+                </div>
+              )}
 
               {showCreateKey && (
                 <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4">
@@ -523,13 +712,13 @@ export default function Settings() {
 
                   {justCreatedKey ? (
                     <div className="space-y-3">
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                        <p className="text-xs text-amber-300 flex items-center gap-1.5 mb-2">
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                        <p className="text-xs text-red-300 flex items-center gap-1.5 mb-2">
                           <AlertTriangle className="w-3.5 h-3.5" />
-                          Copy this key now. You won't be able to see it again.
+                          Copy this key now. It will never be shown in plain text again. Re-accessing requires YubiKey authentication and only reveals the SHA-256 hash.
                         </p>
                         <div className="flex items-center gap-2">
-                          <code className="text-xs bg-black/30 px-3 py-1.5 rounded font-mono flex-1 select-all break-all">
+                          <code className="text-xs bg-black/30 px-3 py-1.5 rounded font-mono flex-1 select-all break-all text-emerald-300">
                             {justCreatedKey}
                           </code>
                           <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(justCreatedKey); toast({ title: "API key copied to clipboard!" }); }}>
@@ -545,7 +734,7 @@ export default function Settings() {
                     <>
                       <div>
                         <Label className="text-xs text-muted-foreground mb-1">Key Name</Label>
-                        <Input placeholder="e.g. My Integration Key" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
+                        <Input placeholder="e.g. Production API Key" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground mb-1.5 block">Permissions</Label>
@@ -567,25 +756,7 @@ export default function Settings() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={!newKeyName.trim() || newKeyScopes.length === 0}
-                          onClick={() => {
-                            const newKey = generateApiKey();
-                            const today = new Date().toISOString().split("T")[0];
-                            const entry: ApiKeyEntry = {
-                              id: `key-${Date.now()}`,
-                              name: newKeyName.trim(),
-                              key: newKey,
-                              created: today,
-                              lastUsed: "Never",
-                              scopes: [...newKeyScopes],
-                            };
-                            setApiKeys(prev => [...prev, entry]);
-                            setJustCreatedKey(newKey);
-                            toast({ title: `API key "${newKeyName}" created!` });
-                          }}
-                        >
+                        <Button size="sm" disabled={!newKeyName.trim() || newKeyScopes.length === 0} onClick={handleCreateApiKey}>
                           <Plus className="w-4 h-4 mr-1" /> Generate Key
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => setShowCreateKey(false)}>Cancel</Button>
@@ -595,48 +766,130 @@ export default function Settings() {
                 </div>
               )}
 
-              {apiKeys.map(apiKey => (
-                <div key={apiKey.id} className="rounded-xl border border-white/5 bg-secondary/20 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-sm">{apiKey.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="text-xs bg-secondary px-2 py-0.5 rounded font-mono">
-                          {showApiKey === apiKey.id ? apiKey.key : apiKey.key.slice(0, 6) + "••••••••"}
-                        </code>
-                        <button onClick={() => setShowApiKey(showApiKey === apiKey.id ? null : apiKey.id)}>
-                          {showApiKey === apiKey.id ? <EyeOff className="w-3 h-3 text-muted-foreground" /> : <Eye className="w-3 h-3 text-muted-foreground" />}
-                        </button>
-                        <button onClick={() => { navigator.clipboard.writeText(apiKey.key); toast({ title: "API key copied!" }); }}>
-                          <Copy className="w-3 h-3 text-muted-foreground" />
-                        </button>
+              {loadingKeys ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => <div key={i} className="rounded-xl border border-white/5 bg-secondary/20 p-4 animate-pulse h-24" />)}
+                </div>
+              ) : dbApiKeys.length === 0 && !showCreateKey ? (
+                <div className="text-center py-12">
+                  <Key className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                  <h3 className="font-semibold mb-1">No API keys yet</h3>
+                  <p className="text-sm text-muted-foreground">Create your first API key to access AgentFlow programmatically.</p>
+                </div>
+              ) : (
+                dbApiKeys.map(apiKey => (
+                  <div key={apiKey.id} className={`rounded-xl border p-4 transition-all ${apiKey.revoked ? "border-red-500/20 bg-red-500/5 opacity-60" : "border-white/5 bg-secondary/20"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm">{apiKey.name}</h3>
+                          {apiKey.revoked && (
+                            <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                              <XCircle className="w-2.5 h-2.5" /> Revoked
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <code className="text-xs bg-secondary px-2 py-0.5 rounded font-mono">
+                            {apiKey.keyPrefix}••••••••••••
+                          </code>
+                          {revealedKeyHash?.id === apiKey.id && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-emerald-400">SHA-256:</span>
+                              <code className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-mono text-emerald-300 max-w-[200px] truncate" title={revealedKeyHash.hash}>
+                                {revealedKeyHash.hash.slice(0, 16)}...{revealedKeyHash.hash.slice(-8)}
+                              </code>
+                              <button onClick={() => { navigator.clipboard.writeText(revealedKeyHash.hash); toast({ title: "Hash copied!" }); }}>
+                                <Copy className="w-3 h-3 text-emerald-400/70 hover:text-emerald-300" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {!apiKey.revoked && yubiKeyRegistered && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+                            onClick={() => handleYubiKeyAuth(apiKey.id)}
+                            disabled={yubiKeyVerifying && revealingKeyId === apiKey.id}
+                          >
+                            {yubiKeyVerifying && revealingKeyId === apiKey.id ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <Fingerprint className="w-3 h-3 mr-1" />
+                            )}
+                            {revealedKeyHash?.id === apiKey.id ? "Re-verify" : "Reveal Hash"}
+                          </Button>
+                        )}
+                        {!apiKey.revoked && (
+                          <Button variant="ghost" size="sm" className="h-8 text-xs text-amber-400 hover:bg-amber-500/10"
+                            onClick={() => handleRevokeApiKey(apiKey.id)}>
+                            <Lock className="w-3 h-3 mr-1" /> Revoke
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteApiKey(apiKey.id, apiKey.name)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm(`Delete API key "${apiKey.name}"?`)) {
-                          setApiKeys(prev => prev.filter(k => k.id !== apiKey.id));
-                          toast({ title: `API key "${apiKey.name}" deleted.` });
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
-                    <span>Created: {apiKey.created}</span>
-                    <span>Last used: {apiKey.lastUsed}</span>
-                    <div className="flex gap-1">
-                      {apiKey.scopes.map(scope => (
-                        <span key={scope} className="bg-secondary px-1.5 py-0.5 rounded capitalize">{scope}</span>
-                      ))}
+                    <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
+                      <span>Created: {new Date(apiKey.createdAt).toLocaleDateString()}</span>
+                      <span>Last used: {apiKey.lastUsedAt ? new Date(apiKey.lastUsedAt).toLocaleDateString() : "Never"}</span>
+                      <div className="flex gap-1">
+                        {(apiKey.scopes || []).map((scope: string) => (
+                          <span key={scope} className="bg-secondary px-1.5 py-0.5 rounded capitalize">{scope}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
+
+              <div className="rounded-xl border border-border bg-card/60 p-5 space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Usb className="w-4 h-4 text-purple-400" />
+                  YubiKey Management
+                </h3>
+                <p className="text-xs text-muted-foreground">Registered YubiKeys are required to reveal API key hashes after initial creation. This provides hardware-level security for your credentials.</p>
+
+                {webauthnCreds.length > 0 ? (
+                  <div className="space-y-2">
+                    {webauthnCreds.map((cred: any) => (
+                      <div key={cred.id} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-secondary/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                            <Fingerprint className="w-4 h-4 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{cred.deviceName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              ID: {cred.credentialId?.slice(0, 12)}... · Added {new Date(cred.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteWebauthnCred(cred.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-dashed border-white/10 rounded-lg">
+                    <Fingerprint className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-40" />
+                    <p className="text-sm text-muted-foreground">No YubiKeys registered</p>
+                  </div>
+                )}
+
+                <Button variant="outline" size="sm" onClick={handleRegisterYubiKey} disabled={registeringYubiKey}
+                  className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10">
+                  {registeringYubiKey ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                  Register New YubiKey
+                </Button>
+              </div>
             </div>
           )}
 
@@ -757,8 +1010,6 @@ export default function Settings() {
     </div>
   );
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface CostAlert {
   id: number;

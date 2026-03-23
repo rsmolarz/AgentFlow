@@ -207,6 +207,29 @@ export async function ensureTables() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        key_prefix TEXT NOT NULL,
+        key_hash TEXT NOT NULL,
+        scopes JSONB DEFAULT '[]',
+        last_used_at TIMESTAMP,
+        revoked BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS webauthn_credentials (
+        id SERIAL PRIMARY KEY,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key TEXT NOT NULL,
+        counter TEXT DEFAULT '0',
+        device_name TEXT DEFAULT 'YubiKey',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+
     await client.query("UPDATE integrations SET connected = false, api_key = NULL WHERE api_key IS NULL AND connected = true");
 
     await client.query("DELETE FROM eval_runs WHERE agent_id IS NULL AND name IN ('Customer Support Quality','Code Review Accuracy','Content Generation Quality','Data Analysis Precision','Prompt Iteration v3.2')");

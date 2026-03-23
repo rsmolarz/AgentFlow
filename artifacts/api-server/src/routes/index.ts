@@ -20,6 +20,7 @@ import promptsRouter from "./prompts";
 import notificationsRouter from "./notifications";
 import auditLogsRouter from "./audit-logs";
 import agentPresetsRouter from "./agent-presets";
+import apiKeysRouter from "./api-keys";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(promptsRouter);
 router.use(notificationsRouter);
 router.use(auditLogsRouter);
 router.use(agentPresetsRouter);
+router.use(apiKeysRouter);
 
 export default router;

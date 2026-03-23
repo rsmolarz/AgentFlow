@@ -79,6 +79,7 @@ The frontend uses React, Vite, Tailwind CSS v4, and `shadcn/ui` to provide a mod
 -   **Cost Optimizer AI**: AI analysis of token usage patterns with actionable cost-saving recommendations. Shows monthly cost, tokens used, potential savings, and optimization score.
 -   **Team Workspaces**: Multi-team workspace management with member roles (owner/admin/member/viewer), invite system, and per-workspace agent/workflow counts.
 -   **Slack Notifications**: Configure Slack webhook integration for real-time alerts. Channel-based event routing (agent-alerts, workflow-updates, general) with per-channel event type selection.
+-   **API Keys Management**: Full CRUD for API keys stored in `api_keys` DB table. Keys shown once on creation, subsequent access to the SHA-256 hash requires YubiKey (WebAuthn) authentication. Features: key creation with name/scopes, revocation, deletion, prefix-only display. YubiKey registration/management via `webauthn_credentials` DB table with WebAuthn challenge/response flow.
 
 ## System Design Choices
 
