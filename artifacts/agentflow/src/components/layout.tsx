@@ -34,6 +34,7 @@ import {
   DollarSign,
   Users,
   MessageSquare,
+  Monitor,
   ChevronDown,
   CheckCircle2,
   XCircle,
@@ -95,6 +96,7 @@ const NAV_GROUPS: NavGroup[] = [
       { icon: Database, label: "Knowledge", href: "/knowledge-bases" },
       { icon: Webhook, label: "Webhooks", href: "/webhooks" },
       { icon: MessageSquare, label: "Slack", href: "/slack-config" },
+      { icon: Monitor, label: "Local Bridge", href: "/bridge" },
     ],
   },
   {

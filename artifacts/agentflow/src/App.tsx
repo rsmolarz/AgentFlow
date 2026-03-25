@@ -34,6 +34,7 @@ import WorkflowRefiner from "./pages/workflow-refiner";
 import CostOptimizer from "./pages/cost-optimizer";
 import TeamWorkspaces from "./pages/team-workspaces";
 import SlackConfig from "./pages/slack-config";
+import BridgePage from "./pages/BridgePage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -131,6 +132,9 @@ function Router() {
       </Route>
       <Route path="/slack-config">
         <Layout><SlackConfig /></Layout>
+      </Route>
+      <Route path="/bridge">
+        <Layout><BridgePage /></Layout>
       </Route>
 
       <Route component={NotFound} />

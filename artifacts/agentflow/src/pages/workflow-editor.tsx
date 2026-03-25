@@ -122,6 +122,11 @@ const nodeDescriptions: Record<string, { title: string; desc: string; help: stri
     title: "Output Formatter",
     desc: "Format data as JSON, CSV, or Markdown",
     help: "The Output Formatter transforms incoming data into a specific format. Choose JSON for structured API responses, CSV for spreadsheet-compatible tabular data, or Markdown for human-readable reports. Configure field selection, custom templates, and formatting options. Use the live preview to see exactly how your output will look before running the workflow."
+  },
+  localShell: {
+    title: "Local Shell",
+    desc: "Run a shell command on a connected Mac",
+    help: "The Local Shell node executes a command on a connected local Mac via the AgentFlow Bridge. Select a registered machine, enter a shell command (supports {{variable}} interpolation), and configure working directory and timeout. Output streams in real time. Requires the Bridge app running on the target Mac."
   }
 };
 
@@ -143,6 +148,7 @@ const nodeConfig: Record<string, { icon: any; color: string; border: string }> =
   api_call: { icon: Globe, color: "bg-sky-500/10 text-sky-400", border: "border-sky-500/30" },
   knowledge_query: { icon: BookOpen, color: "bg-lime-500/10 text-lime-400", border: "border-lime-500/30" },
   output_formatter: { icon: FileJson, color: "bg-fuchsia-500/10 text-fuchsia-400", border: "border-fuchsia-500/30" },
+  localShell: { icon: Terminal, color: "bg-violet-500/10 text-violet-400", border: "border-violet-500/30" },
   default: { icon: ShieldAlert, color: "bg-secondary text-foreground", border: "border-border" }
 };
 

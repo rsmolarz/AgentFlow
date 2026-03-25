@@ -1,5 +1,6 @@
 import app from "./app";
 import { ensureTables } from "@workspace/db/migrate";
+import { initBridgeWebSocket } from "./routes/bridge";
 
 const rawPort = process.env["PORT"];
 
@@ -17,9 +18,10 @@ if (Number.isNaN(port) || port <= 0) {
 
 async function start() {
   await ensureTables();
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
   });
+  initBridgeWebSocket(server);
 }
 
 start().catch(err => {

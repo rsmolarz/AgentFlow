@@ -21,6 +21,7 @@ import notificationsRouter from "./notifications";
 import auditLogsRouter from "./audit-logs";
 import agentPresetsRouter from "./agent-presets";
 import apiKeysRouter from "./api-keys";
+import bridgeRouter from "./bridge";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(notificationsRouter);
 router.use(auditLogsRouter);
 router.use(agentPresetsRouter);
 router.use(apiKeysRouter);
+router.use("/bridge", bridgeRouter);
 
 export default router;
