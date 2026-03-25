@@ -230,6 +230,60 @@ export async function ensureTables() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bridge_machines (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        api_key_hash TEXT NOT NULL UNIQUE,
+        api_key_prefix TEXT NOT NULL,
+        machine_id TEXT NOT NULL UNIQUE,
+        hostname TEXT,
+        platform TEXT,
+        arch TEXT,
+        status TEXT NOT NULL DEFAULT 'offline',
+        last_seen_at TIMESTAMP,
+        is_enabled BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS bridge_jobs (
+        id TEXT PRIMARY KEY,
+        machine_id TEXT NOT NULL REFERENCES bridge_machines(id) ON DELETE CASCADE,
+        command TEXT NOT NULL,
+        cwd TEXT,
+        env JSONB,
+        timeout_ms INTEGER NOT NULL DEFAULT 300000,
+        status TEXT NOT NULL DEFAULT 'queued',
+        stdout TEXT,
+        stderr TEXT,
+        exit_code INTEGER,
+        duration_ms INTEGER,
+        workflow_execution_id TEXT,
+        node_id TEXT,
+        queued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS bridge_job_output (
+        id TEXT PRIMARY KEY,
+        job_id TEXT NOT NULL REFERENCES bridge_jobs(id) ON DELETE CASCADE,
+        stream TEXT NOT NULL,
+        data TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS bridge_machines_machine_id_idx ON bridge_machines(machine_id);
+      CREATE INDEX IF NOT EXISTS bridge_machines_status_idx ON bridge_machines(status);
+      CREATE INDEX IF NOT EXISTS bridge_jobs_machine_id_idx ON bridge_jobs(machine_id);
+      CREATE INDEX IF NOT EXISTS bridge_jobs_status_idx ON bridge_jobs(status);
+      CREATE INDEX IF NOT EXISTS bridge_jobs_workflow_exec_idx ON bridge_jobs(workflow_execution_id);
+      CREATE INDEX IF NOT EXISTS bridge_job_output_job_id_idx ON bridge_job_output(job_id);
+      CREATE INDEX IF NOT EXISTS bridge_job_output_job_seq_idx ON bridge_job_output(job_id, seq);
+    `);
+
     await client.query("UPDATE integrations SET connected = false, api_key = NULL WHERE api_key IS NULL AND connected = true");
 
     await client.query("DELETE FROM eval_runs WHERE agent_id IS NULL AND name IN ('Customer Support Quality','Code Review Accuracy','Content Generation Quality','Data Analysis Precision','Prompt Iteration v3.2')");
