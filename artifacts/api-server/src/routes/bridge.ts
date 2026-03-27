@@ -45,6 +45,21 @@ function sseWrite(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+async function findMachineById(id: string) {
+  const [machine] = await db.select().from(bridgeMachines).where(eq(bridgeMachines.id, id)).limit(1);
+  return machine ?? null;
+}
+
+async function findMachineByKeyHash(keyHash: string) {
+  const [machine] = await db.select().from(bridgeMachines).where(eq(bridgeMachines.apiKeyHash, keyHash)).limit(1);
+  return machine ?? null;
+}
+
+async function findJobById(id: string) {
+  const [job] = await db.select().from(bridgeJobs).where(eq(bridgeJobs.id, id)).limit(1);
+  return job ?? null;
+}
+
 // ─── REST: Machine Management ─────────────────────────────────────────────────
 
 // GET /api/bridge/machines — list all registered machines
@@ -105,9 +120,7 @@ router.post('/machines', async (req, res) => {
 
 // DELETE /api/bridge/machines/:id — revoke a machine
 router.delete('/machines/:id', async (req, res) => {
-  const machine = await db.query.bridgeMachines.findFirst({
-    where: eq(bridgeMachines.id, req.params.id),
-  });
+  const machine = await findMachineById(req.params.id);
   if (!machine) return res.status(404).json({ error: 'Not found' });
 
   // Disconnect if live
@@ -140,9 +153,7 @@ router.post('/jobs', async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
-  const machine = await db.query.bridgeMachines.findFirst({
-    where: eq(bridgeMachines.id, parsed.data.machineId),
-  });
+  const machine = await findMachineById(parsed.data.machineId);
   if (!machine) return res.status(404).json({ error: 'Machine not found' });
   if (!machine.isEnabled) return res.status(403).json({ error: 'Machine is disabled' });
 
@@ -185,9 +196,7 @@ router.post('/jobs', async (req, res) => {
 
 // GET /api/bridge/jobs/:id — get job status
 router.get('/jobs/:id', async (req, res) => {
-  const job = await db.query.bridgeJobs.findFirst({
-    where: eq(bridgeJobs.id, req.params.id),
-  });
+  const job = await findJobById(req.params.id);
   if (!job) return res.status(404).json({ error: 'Not found' });
   res.json(job);
 });
@@ -195,10 +204,7 @@ router.get('/jobs/:id', async (req, res) => {
 // GET /api/bridge/jobs/:id/stream — SSE stream of job output
 router.get('/jobs/:id/stream', async (req, res) => {
   const jobId = req.params.id;
-
-  const job = await db.query.bridgeJobs.findFirst({
-    where: eq(bridgeJobs.id, jobId),
-  });
+  const job = await findJobById(jobId);
   if (!job) return res.status(404).json({ error: 'Not found' });
 
   // Set up SSE
@@ -236,16 +242,10 @@ router.get('/jobs/:id/stream', async (req, res) => {
 
 // POST /api/bridge/jobs/:id/cancel — cancel a running job
 router.post('/jobs/:id/cancel', async (req, res) => {
-  const job = await db.query.bridgeJobs.findFirst({
-    where: and(
-      eq(bridgeJobs.id, req.params.id),
-    ),
-  });
+  const job = await findJobById(req.params.id);
   if (!job) return res.status(404).json({ error: 'Not found' });
 
-  const machine = await db.query.bridgeMachines.findFirst({
-    where: eq(bridgeMachines.id, job.machineId),
-  });
+  const machine = await findMachineById(job.machineId);
   if (!machine) return res.status(404).json({ error: 'Machine not found' });
 
   const live = connectedMachines.get(machine.machineId);
@@ -291,9 +291,7 @@ export function initBridgeWebSocket(server: HttpServer): void {
       // ── Registration ──────────────────────────────────────────────────────
       if (msg.type === 'register') {
         const keyHash = hashApiKey(msg.apiKey || '');
-        const machine = await db.query.bridgeMachines.findFirst({
-          where: eq(bridgeMachines.apiKeyHash, keyHash),
-        });
+        const machine = await findMachineByKeyHash(keyHash);
 
         if (!machine || !machine.isEnabled) {
           ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid or disabled API key' }));
