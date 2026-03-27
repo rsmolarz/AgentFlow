@@ -21,13 +21,7 @@ import notificationsRouter from "./notifications";
 import auditLogsRouter from "./audit-logs";
 import agentPresetsRouter from "./agent-presets";
 import apiKeysRouter from "./api-keys";
-let bridgeRouter: any;
-try {
-  bridgeRouter = require("./bridge").default;
-  console.log("[Bridge] Route module loaded successfully");
-} catch (err: any) {
-  console.error("[Bridge] Failed to load bridge routes:", err?.message || err);
-}
+import bridgeRouter from "./bridge";
 
 const router: IRouter = Router();
 
@@ -53,11 +47,6 @@ router.use(notificationsRouter);
 router.use(auditLogsRouter);
 router.use(agentPresetsRouter);
 router.use(apiKeysRouter);
-if (bridgeRouter) {
-  router.use("/bridge", bridgeRouter);
-  console.log("[Bridge] Routes registered at /bridge");
-} else {
-  console.warn("[Bridge] Bridge routes NOT registered — module failed to load");
-}
+router.use("/bridge", bridgeRouter);
 
 export default router;
