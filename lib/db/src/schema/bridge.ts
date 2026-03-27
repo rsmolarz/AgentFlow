@@ -1,11 +1,11 @@
 import { pgTable, text, integer, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { createId } from '@paralleldrive/cuid2';
+import { randomUUID } from 'crypto';
 
 // ─── Bridge Machines ──────────────────────────────────────────────────────────
 // Registered Mac machines that can execute local shell commands.
 
 export const bridgeMachines = pgTable('bridge_machines', {
-  id: text('id').primaryKey().$defaultFn(() => createId()),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
 
   // Display name shown in workflow node selectors
   name: text('name').notNull(),
@@ -40,7 +40,7 @@ export const bridgeMachines = pgTable('bridge_machines', {
 // Individual shell commands dispatched to a bridge machine.
 
 export const bridgeJobs = pgTable('bridge_jobs', {
-  id: text('id').primaryKey().$defaultFn(() => createId()),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
 
   machineId: text('machine_id').notNull()
     .references(() => bridgeMachines.id, { onDelete: 'cascade' }),
@@ -79,7 +79,7 @@ export const bridgeJobs = pgTable('bridge_jobs', {
 // Streaming output lines stored for SSE replay and log viewing.
 
 export const bridgeJobOutput = pgTable('bridge_job_output', {
-  id: text('id').primaryKey().$defaultFn(() => createId()),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   jobId: text('job_id').notNull()
     .references(() => bridgeJobs.id, { onDelete: 'cascade' }),
   stream: text('stream', { enum: ['stdout', 'stderr'] }).notNull(),
