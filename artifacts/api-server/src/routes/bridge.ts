@@ -5,13 +5,23 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { createServer, Server as HttpServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import type { Server as HttpServer } from 'http';
 import { createHash, randomBytes } from 'crypto';
 import { db } from '@workspace/db';
 import { bridgeMachines, bridgeJobs, bridgeJobOutput } from '@workspace/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
+
+// Lazy-load ws to avoid import errors if package isn't available
+let WebSocketServer: any;
+let WebSocket: any;
+try {
+  const ws = require('ws');
+  WebSocketServer = ws.WebSocketServer || ws.Server;
+  WebSocket = ws.WebSocket || ws;
+} catch (err) {
+  console.warn('[Bridge] ws package not available, WebSocket features disabled');
+}
 
 const router = Router();
 
@@ -266,6 +276,10 @@ router.post('/jobs/:id/cancel', async (req, res) => {
 let wss: WebSocketServer | null = null;
 
 export function initBridgeWebSocket(server: HttpServer): void {
+  if (!WebSocketServer) {
+    console.warn('[Bridge] WebSocket server not initialized — ws package not available');
+    return;
+  }
   wss = new WebSocketServer({ server, path: '/api/bridge/ws' });
 
   wss.on('connection', (ws: WebSocket) => {
